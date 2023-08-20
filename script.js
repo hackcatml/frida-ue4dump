@@ -244,29 +244,6 @@ var UStructProperty = {
     }
 };
 
-// Intercept operator==(FNameEntryId, EName)
-function findGName(moduleName) {
-    var base = Module.findExportByName(moduleName, "_Zeq12FNameEntryId5EName");
-    if (base == null) {
-        console.log(`[!] Cannot find GName. You need to find it by yourself`);
-        GName = null;
-        return;
-    }
-    Interceptor.attach(base.add(0x8), {
-        onEnter: function(args) {
-            // console.log(this.context.x8);
-            // console.log(JSON.stringify(this.context.x8).length);
-            if (this.context.x8 != ptr(0x0) && JSON.stringify(this.context.x8).length > 10) {
-                GName = ptr(this.context.x8);
-                Interceptor.detachAll();
-            }
-        },
-        onLeave: function(retval) {
-            // Interceptor.detachAll();
-        }
-    })
-}
-
 function getFNameFromID(index) {
     var Block = index >> 16;
     var Offset = index & 65535;
@@ -560,7 +537,7 @@ function dumpObjects() {
         console.log(`Do set(<moduleName>) first`);
         return;
     } else if (GUObjectArray === null) {
-        console.log(`Provide GUObjectArray address`);
+        console.log(`Provide GUObjectArray address by GUObjectArray = moduleBase.add(<offset of GUObjectArray>);`);
         return;
     }
     var ObjectCount = GUObjectArray.add(offset_FUObjectArray_TUObjectArray).add(offset_TUObjectArray_NumElements).readU32();
@@ -582,7 +559,7 @@ function dumpSdk() {
         console.log(`Do set(<moduleName>) first`);
         return;
     } else if (GUObjectArray === null) {
-        console.log(`Provide GUObjectArray address`);
+        console.log(`Provide GUObjectArray address by GUObjectArray = moduleBase.add(<offset of GUObjectArray>);`);
         return;
     }
     var ObjectCount = GUObjectArray.add(offset_FUObjectArray_TUObjectArray).add(offset_TUObjectArray_NumElements).readU32();
@@ -597,16 +574,53 @@ function dumpSdk() {
     }
 }
 
+// Find GName
+function findGName(moduleName) {
+    var addr = Module.findExportByName(moduleName, "_Zeq12FNameEntryId5EName");
+    if (addr === null) {
+        console.log(`[!] Cannot find GName`);
+        console.log(`[*] Try to search GName on memory`);
+        var module = Process.findModuleByName(moduleName)
+        // Pattern for _Zeq12FNameEntryId5EName func (operator==(FNameEntryId, EName))
+        var pattern = "28 ?? ?? ?? 08 01 ?? 91 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 08 69 69 b8 1f 01 00 6b e0 17 9f 1a c0 03 5f d6";
+        var match = Memory.scanSync(module.base, module.size, pattern);
+        if (match.length > 0) {
+            console.log(`[*] Found _Zeq12FNameEntryId5EName function address ${match[0].address}`);
+            console.log(`[*] Intercept _Zeq12FNameEntryId5EName to get GName`);
+            addr = match[0].address;
+        } else {
+            console.log(`[!] Cannot find GName in memory too. You need to find it by yourself`);
+            GName = null;
+            return;
+        }
+    } 
+
+    // Intercept operator==(FNameEntryId, EName) func
+    Interceptor.attach(addr.add(0x8), {
+        onEnter: function(args) {
+            // console.log(this.context.x8);
+            // console.log(JSON.stringify(this.context.x8).length);
+            if (this.context.x8 != ptr(0x0) && JSON.stringify(this.context.x8).length > 10) {
+                GName = ptr(this.context.x8);
+                Interceptor.detachAll();
+            }
+        },
+        onLeave: function(retval) {
+            // Interceptor.detachAll();
+        }
+    })
+}
+
 function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
     GUObjectArray = Module.findExportByName(moduleName, "GUObjectArray");
-    if (GUObjectArray == null) {
+    if (GUObjectArray === null) {
         console.log(`[!] Cannot find GUObjectArray. You need to find it by yourself`);
     }
     findGName(moduleName);
 
     var int = setInterval(() => {
-        if (GName !== undefined) {
+        if (GName !== undefined && GName !== null) {
             console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
