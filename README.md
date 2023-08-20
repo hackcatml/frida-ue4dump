@@ -1,7 +1,7 @@
 # frida-ue4dump
-UE4 dump frida script<br>
+UE4 dump frida script for UE >= 4.23 64bit<br>
 Heavily based on [UE4Dumper](https://github.com/kp7742/UE4Dumper)<br>
-Only tested on UE4.27.2 sample game. It might not work correctly on other versions unless you fix the offsets in script.js
+Only tested on UE4.27.2 sample game(Android, iOS). It might not work correctly on other versions unless you fix the offsets in script.js
 
 # Usage
 1. Attach
