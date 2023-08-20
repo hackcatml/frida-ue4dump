@@ -26,7 +26,7 @@ var offset_UObject_ClassPrivate = 0x10;
 var offset_UObject_FNameIndex = 0x18;
 var offset_UObject_OuterPrivate = 0x20;
 //Class: UField
-var offset_offset_UField_Next = 0x28;
+var offset_UField_Next = 0x28;
 //Class: UStruct
 var offset_UStruct_SuperStruct = 0x40;
 var offset_UStruct_Children = 0x48;
@@ -103,7 +103,7 @@ var UObject = {
 
 var UField = {
     getNext: function(field) {//UField*
-        return field.add(offset_offset_UField_Next).readPointer();
+        return field.add(offset_UField_Next).readPointer();
     }
 };
 
@@ -168,6 +168,7 @@ var UFunction = {
         return func.add(offset_UFunction_FunctionFlags).readU32();
     },
     getFunc: function(func) {
+        // console.log(`func: ${func}`)
         return func.add(offset_UFunction_Func).readPointer();
     }
 };
@@ -493,7 +494,7 @@ function writeStructChild_Func(childprop) {
                 returnVal = "protected " + returnVal;
             }*/
 
-            console.log(`\t${returnVal} ${oname}(${params}); // ${ptr(UFunction.getFunc(prop) - moduleBase)}`);
+            console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)}`);
         } else {
             console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`); 
         }
@@ -527,8 +528,8 @@ function writeStruct(clazz) {
         currStruct = UStruct.getSuperClass(currStruct);
     }
     // console.log(`recurse: ${recurrce}`);
-    for (var item in recurrce) {
-        writeStruct(recurrce[item]);
+    for (var key in recurrce) {
+        writeStruct(recurrce[key]);
     }
 }
 
