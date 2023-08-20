@@ -606,11 +606,11 @@ function set(moduleName) {
     findGName(moduleName);
 
     var int = setInterval(() => {
-        if (GName != undefined) {
+        if (GName !== undefined) {
             console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
-        } else if (GName == null) {
+        } else if (GName === null) {
             console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
