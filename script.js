@@ -593,7 +593,7 @@ function findGName(moduleName) {
             console.log(`[*] Intercept _Zeq12FNameEntryId5EName to get GName`);
             addr = match[0].address;
         } else if (match.length > 1) {
-            console.log(`[!] Found ${match.length} address`);
+            console.log(`[!] Found ${match.length} addresses`);
             console.log(`[!] You need to inspect these offsets to find GName`);
             for (var key in match) {
                 console.log(`${key}. offset: ${match[key].address.sub(module.base)}`);
@@ -683,8 +683,8 @@ function findGUObjectArray(moduleName) {
             console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
             GUObjectArray = module.base.add(offset_GUObjectArray);
         } else if (match.length > 1) {
-            console.log(`[!] Found ${match.length} address`);
-            console.log(`[!] You need to inspect these offsets to find GName`);
+            console.log(`[!] Found ${match.length} addresses`);
+            console.log(`[!] You need to inspect these offsets to find GUObjectArray`);
             for (var key in match) {
                 console.log(`${key}. offset: ${match[key].address.sub(module.base)}`);
             }
