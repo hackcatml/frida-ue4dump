@@ -3,7 +3,8 @@ var GUObjectArray;
 var GName;
 
 var nameIds = [];
-var platform = Process.platform
+var platform = Process.platform;
+var arch = Process.arch;
 
 // Global
 var FUObjectItemPadd = 0x0;
@@ -19,7 +20,7 @@ var offset_FNamePool_CurrentByteCursor = 0xc;
 var offset_FNamePool_Blocks = 0x10;
 // FNameEntry
 var FNameEntry_LenBit = 6;
-var offset_FNameEntryT_String = 0x2;
+var offset_FNameEntry_String = 0x2;
 //Class: UObject
 var offset_UObject_InternalIndex = 0xC;
 var offset_UObject_ClassPrivate = 0x10;
@@ -258,7 +259,7 @@ function getFNameFromID(index) {
     // console.log(`FNameEntry: ${FNameEntry}`);
     var FNameEntryHeader = FNameEntry.readU16();
     // console.log(`FNameEntryHeader: ${FNameEntryHeader}`);
-    var str_addr = FNameEntry.add(offset_FNameEntryT_String);
+    var str_addr = FNameEntry.add(offset_FNameEntry_String);
     var str_length = FNameEntryHeader >> FNameEntry_LenBit;
     var wide = FNameEntryHeader & 1;
 
@@ -582,13 +583,23 @@ function findGName(moduleName) {
         console.log(`[!] Cannot find GName`);
         console.log(`[*] Try to search GName on memory`);
         var module = Process.findModuleByName(moduleName)
-        // Pattern for _Zeq12FNameEntryId5EName func (operator==(FNameEntryId, EName))
-        var pattern = "28 ?? ?? ?? 08 01 ?? 91 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 08 69 69 b8 1f 01 00 6b e0 17 9f 1a c0 03 5f d6";
+        /* Pattern for _Zeq12FNameEntryId5EName func (operator==(FNameEntryId, EName)) 
+        hmm...not sure it's a correct pattern. I only checked three simple UE4 games
+        */
+        var pattern = "?8 ?? ?? ?? 08 01 ?? 91 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 08 69 69 b8 1f 01 00 6b e0 17 9f 1a c0 03 5f d6";
         var match = Memory.scanSync(module.base, module.size, pattern);
-        if (match.length > 0) {
+        if (match.length === 1) {
             console.log(`[*] Found _Zeq12FNameEntryId5EName function address ${match[0].address}`);
             console.log(`[*] Intercept _Zeq12FNameEntryId5EName to get GName`);
             addr = match[0].address;
+        } else if (match.length > 1) {
+            console.log(`[!] Found ${match.length} address`);
+            console.log(`[!] You need to inspect these offsets to find GName`);
+            for (var key in match) {
+                console.log(`${key}. offset: ${match[key].address.sub(module.base)}`);
+            }
+            GName = null;
+            return;
         } else {
             console.log(`[!] Cannot find GName in memory too. You need to find it by yourself`);
             GName = null;
@@ -612,12 +623,84 @@ function findGName(moduleName) {
     })
 }
 
+function bytes2hex(array) {
+    var result = '';
+    for(var i = 0; i < array.length; ++i) {
+        result += ('0' + (array[i] & 0xFF).toString(16)).slice(-2);
+    }
+    return result;
+}
+
+// https://github.com/frida/frida/issues/1158#issuecomment-1227124335
+function armConvert(hex, offset, arch) {
+    var askStr = '{"hex":"' + hex + '","offset":"' + offset + '","arch":"' + arch + '"}';
+    // console.log(askStr)
+    var str = ObjC.classes.NSString['alloc']()['initWithString:'](askStr.toString());
+    var postData = str.dataUsingEncoding_(4);
+    // console.log(postData.bytes().readUtf8String(postData.length()));
+    var len = str.length;
+    var strLength = ObjC.classes.NSString['stringWithFormat:']('%d', len);
+    var request = ObjC.classes.NSMutableURLRequest['alloc']()['init']();
+    var url = ObjC.classes.NSURL.URLWithString_('https://armconverter.com/api/convert');
+    var method = ObjC.classes.NSString['alloc']()['initWithString:']('POST');
+    var httpF = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Length');
+    var httpL  = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Type');
+    request.setURL_(url);
+    request.setHTTPMethod_(method);
+    request.setValue_forHTTPHeaderField_(strLength,httpF);
+    request.setValue_forHTTPHeaderField_("application/json", httpL);
+    request.setHTTPBody_(postData);
+    var nil = ObjC.Object(ptr("0x0"));
+    var resData = ObjC.classes.NSURLConnection['sendSynchronousRequest:returningResponse:error:'](request,nil,nil);
+    var resStr = resData.bytes().readUtf8String(resData.length());
+    var obj = JSON.parse(resStr);
+    var disassemResult = obj.asm.arm64[1];
+    var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
+    // console.log(`adrp: ${adrp}`);
+    var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
+    // console.log(`add: ${add}`);
+    return ptr(adrp).add(ptr(add));
+}
+
+function findGUObjectArray(moduleName) {
+    GUObjectArray = Module.findExportByName(moduleName, "GUObjectArray");
+    // Seems GUObjectArray exported on Android, only iOS matter?
+    if (GUObjectArray === null && platform === 'darwin') {
+        console.log(`[!] Cannot find GUObjectArray`);
+        console.log(`[*] Try to search GUObjectArray on memory`);
+        var module = Process.findModuleByName(moduleName);
+        /* Pattern for FUObjectArray::AllocateObjectPool(&GUObjectArray, int, int, bool); in UObjectBaseInit()
+        hmm...not sure it's a correct pattern and it's too short...maybe it will find more than one address
+        */
+        var pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
+        var match = Memory.scanSync(module.base, module.size, pattern);
+        if (match.length === 1) {
+            console.log(`[*] Found FUObjectArray::AllocateObjectPool(&GUObjectArray, int, int, bool) pattern at ${match[0].address}`);
+            console.log(`[*] Disassemble it using armconvert.com`)
+            var arrayBuff = new Uint8Array(match[0].address.add(0xc).readByteArray(8));
+            var hex = bytes2hex(arrayBuff);
+            var offset_GUObjectArray = armConvert(hex, match[0].address.add(0xc).sub(module.base), arch);
+            console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
+            GUObjectArray = module.base.add(offset_GUObjectArray);
+        } else if (match.length > 1) {
+            console.log(`[!] Found ${match.length} address`);
+            console.log(`[!] You need to inspect these offsets to find GName`);
+            for (var key in match) {
+                console.log(`${key}. offset: ${match[key].address.sub(module.base)}`);
+            }
+            GUObjectArray = null;
+            return;
+        } else {
+            console.log(`[!] Cannot find GUObjectArray in memory too. You need to find it by yourself`);
+            GUObjectArray = null;
+            return;
+        }
+    }
+}
+
 function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
-    GUObjectArray = Module.findExportByName(moduleName, "GUObjectArray");
-    if (GUObjectArray === null) {
-        console.log(`[!] Cannot find GUObjectArray. You need to find it by yourself`);
-    }
+    findGUObjectArray(moduleName);
     findGName(moduleName);
 
     var int = setInterval(() => {
