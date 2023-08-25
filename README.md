@@ -32,6 +32,6 @@ dumpSdk()
 
 
 
-# Credit
+# Credits
 * [UE4Dumper](https://github.com/kp7742/UE4Dumper)
 * [AndUE4Dumper](https://github.com/MJx0/AndUE4Dumper)
