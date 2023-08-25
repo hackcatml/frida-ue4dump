@@ -1,7 +1,13 @@
 # frida-ue4dump
 UE4 dump frida script for UE >= 4.23 64bit<br>
 Heavily based on [UE4Dumper](https://github.com/kp7742/UE4Dumper)<br>
-Only tested on UE4.27.2 sample game(Android, iOS). It might not work correctly on other versions unless you fix the offsets in script.js
+Tested on the games listed below. It might not work correctly with other games unless you fix the offsets in script.js
+* NIGHT CROWS (iOS, UE5? seems fine)
+* Arena Breakout (iOS)
+* Real Boxing 2 (Android, iOS)
+* Mortal Kombat (Android)
+* Dislyte (Android)
+
 
 # Usage
 1. Attach
@@ -28,3 +34,4 @@ dumpSdk()
 
 # Credit
 * [UE4Dumper](https://github.com/kp7742/UE4Dumper)
+* [AndUE4Dumper](https://github.com/MJx0/AndUE4Dumper)

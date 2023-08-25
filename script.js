@@ -5,6 +5,7 @@ var GName;
 var nameIds = [];
 var platform = Process.platform;
 var arch = Process.arch;
+var isBeforeUE425 = false;
 
 // Global
 var FUObjectItemPadd = 0x0;
@@ -19,6 +20,7 @@ var offset_FNamePool_CurrentBlock = 0x8;
 var offset_FNamePool_CurrentByteCursor = 0xc;
 var offset_FNamePool_Blocks = 0x10;
 // FNameEntry
+var offset_FNameEntry_Info = 0;
 var FNameEntry_LenBit = 6;
 var offset_FNameEntry_String = 0x2;
 //Class: UObject
@@ -38,36 +40,121 @@ var offset_FField_Next = 0x20;
 var offset_FField_Name = 0x28;
 //Class: UFunction
 var offset_UFunction_FunctionFlags = 0xb0;
-var offset_UFunction_Func = 0xd8;
-//Class: UProperty
+var offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
+//Class: UProperty (FProperty in UE4.25+)
 var offset_UProperty_ElementSize = 0x38;
 var offset_UProperty_PropertyFlags = 0x40;
 var offset_UProperty_OffsetInternal = 0x4c;
+var offset_UProperty_size = 0x78;
 //Class: UBoolProperty
-var offset_UBoolProperty_FieldSize = 0x88;
-var offset_UBoolProperty_ByteOffset = 0x89;
-var offset_UBoolProperty_ByteMask = 0x8a;
-var offset_UBoolProperty_FieldMask = 0x8b;
+var offset_UBoolProperty_FieldSize = null;
+var offset_UBoolProperty_ByteOffset = null;
+var offset_UBoolProperty_ByteMask = null;
+var offset_UBoolProperty_FieldMask = null;
 //Class: UObjectProperty
-var offset_UObjectProperty_PropertyClass = 0x78;
+var offset_UObjectProperty_PropertyClass = null;
 //Class: UClassProperty
-var offset_UClassProperty_MetaClass = 0x78;
+var offset_UClassProperty_MetaClass = null;
 //Class: UInterfaceProperty
-var offset_UInterfaceProperty_InterfaceClass = 0x78;
+var offset_UInterfaceProperty_InterfaceClass = null;
 //Class: UArrayProperty
-var offset_UArrayProperty_InnerProperty = 0x78;
+var offset_UArrayProperty_InnerProperty = null;
 //Class: UMapProperty
-var offset_UMapProperty_KeyProp = 0x78;
-var offset_UMapProperty_ValueProp = 0x80;
+var offset_UMapProperty_KeyProp = null;
+var offset_UMapProperty_ValueProp = null;
 //Class: USetProperty
-var offset_USetProperty_ElementProp = 0x78;
+var offset_USetProperty_ElementProp = null;
 //Class: UStructProperty
-var offset_UStructProperty_Struct = 0x78;
+var offset_UStructProperty_Struct = null;
 //Class: UWorld
 var offset_UWorld_PersistentLevel = 0x30;
 //Class: ULevel
 var offset_ULevel_AActors = 0x98;
 var offset_ULevel_AActorsCount = 0xA0;
+
+function setOffsetProperty(offset_UProperty_size) {
+    offset_UBoolProperty_FieldMask = offset_UProperty_size + 0x3
+    offset_UBoolProperty_ByteMask = offset_UBoolProperty_FieldMask - 0x1;
+    offset_UBoolProperty_ByteOffset = offset_UBoolProperty_ByteMask - 0x1;
+    offset_UBoolProperty_FieldSize = offset_UBoolProperty_ByteOffset - 0x1;
+
+    offset_UObjectProperty_PropertyClass = offset_UProperty_size;
+
+    offset_UClassProperty_MetaClass = offset_UProperty_size + Process.pointerSize;
+    
+    offset_UInterfaceProperty_InterfaceClass = offset_UProperty_size;
+    
+    offset_UArrayProperty_InnerProperty = offset_UProperty_size;
+    
+    offset_UMapProperty_KeyProp = offset_UProperty_size;
+    offset_UMapProperty_ValueProp = offset_UProperty_size + Process.pointerSize;
+    
+    offset_USetProperty_ElementProp = offset_UProperty_size;
+    
+    offset_UStructProperty_Struct = offset_UProperty_size;
+}
+
+function setOffset(appId) {
+    // Mortal Kombat(Android) offsets from AndUE4Dumper(https://github.com/MJx0/AndUE4Dumper)
+    if (appId === "com.wb.goog.mkx") {
+        isBeforeUE425 = false;
+        // FNamePool
+        FNameStride = 0x4
+        // FNameEntry
+        offset_FNameEntry_Info = 0x4;
+        FNameEntry_LenBit = 1;
+        offset_FNameEntry_String = 0x6;
+        //Class: UField
+        offset_UField_Next = 0x30;
+        //Class: UObject
+        offset_UObject_OuterPrivate = 0x28;
+        //Class: UStruct
+        offset_UStruct_SuperStruct = 0x48;
+        offset_UStruct_Children = 0x50;
+        offset_UStruct_ChildProperties = 0x58;
+        //Class: UFunction
+        offset_UFunction_FunctionFlags = 0xb8;
+        offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
+        //Class: UProperty
+        offset_UProperty_ElementSize = 0x3c;
+        offset_UProperty_size = 0x80;
+        setOffsetProperty(offset_UProperty_size);
+    } else if (appId === "com.vividgames.realboxing2") {    // Real Boxing 2
+        isBeforeUE425 = true;
+        //Class: UStruct
+        offset_UStruct_SuperStruct = 0x40;
+        offset_UStruct_Children = 0x48;
+        // It's UE4.24.3. no need before UE4.25
+        offset_UStruct_ChildProperties = 0x0;
+        //Class: UFunction
+        offset_UFunction_FunctionFlags = 0x98;
+        offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
+        //Class: UProperty
+        offset_UProperty_ElementSize = 0x34;
+        offset_UProperty_PropertyFlags = 0x38;
+        offset_UProperty_OffsetInternal = 0x44;
+        offset_UProperty_size = 0x70;
+        setOffsetProperty(offset_UProperty_size);
+    } else if (appId === "com.farlightgames.xgame.gp.kr") { // Dislyte(Android) from AndUE4Dumper(https://github.com/MJx0/AndUE4Dumper)
+        isBeforeUE425 = true;
+        //Class: UStruct
+        offset_UStruct_SuperStruct = 0x40;
+        offset_UStruct_Children = 0x48;
+        // It's UE4.24.3. no need before UE4.25
+        offset_UStruct_ChildProperties = 0x0;
+        //Class: UFunction
+        offset_UFunction_FunctionFlags = 0x98;
+        offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
+        //Class: UProperty
+        offset_UProperty_ElementSize = 0x34;
+        offset_UProperty_PropertyFlags = 0x38;
+        offset_UProperty_OffsetInternal = 0x44;
+        offset_UProperty_size = 0x70;
+        setOffsetProperty(offset_UProperty_size);
+    } else {    // default
+        setOffsetProperty(offset_UProperty_size);
+    }   
+}
 
 var UObject = {
     getClass: function(obj) {
@@ -76,9 +163,14 @@ var UObject = {
         return classPrivate;
     },
     getNameId: function(obj) {
-        var nameId = ptr(obj).add(offset_UObject_FNameIndex).readU32();
-        // console.log(`nameId: ${nameId}`);
-        return nameId;
+        // console.log(`obj: ${obj}`);
+        try {
+            var nameId = ptr(obj).add(offset_UObject_FNameIndex).readU32();
+            // console.log(`nameId: ${nameId}`);
+            return nameId;
+        } catch(e) {
+            return 0;
+        }
     },
     getName: function(obj) {
         if (this.isValid(obj)){
@@ -104,6 +196,7 @@ var UObject = {
 
 var UField = {
     getNext: function(field) {//UField*
+        // console.log(`field: ${field}`);
         return field.add(offset_UField_Next).readPointer();
     }
 };
@@ -122,13 +215,15 @@ var FField = {
 
 var UStruct = {
     getSuperClass: function(structz) {//UStruct*
-        // console.log(`structz: ${structz}`);
+        // console.log(`UStruct.getSuperClass structz: ${structz}`);
         return structz.add(offset_UStruct_SuperStruct).readPointer()
     },
     getChildren: function(structz) {//UField*
+        // console.log(`UStruct.getChildren structz: ${structz}`);
         return structz.add(offset_UStruct_Children).readPointer();
     },
     getChildProperties: function(structz) {//UField*
+        // console.log(`UStruct.getChildProperties structz: ${structz}`);
         return structz.add(offset_UStruct_ChildProperties).readPointer();
     },
     getClassName: function(clazz) {
@@ -191,6 +286,7 @@ var UBoolProperty = {
         return prop.add(offset_UBoolProperty_FieldSize).readU8();
     },
     getByteOffset: function(prop) {
+        // console.log(`prop: ${prop}`)
         return prop.add(offset_UBoolProperty_ByteOffset).readU8();
     },
     getByteMask: function(prop) {
@@ -257,11 +353,22 @@ function getFNameFromID(index) {
     // console.log(`NamePoolChunk: ${NamePoolChunk}`);
     var FNameEntry = NamePoolChunk.add(FNameStride * Offset);
     // console.log(`FNameEntry: ${FNameEntry}`);
-    var FNameEntryHeader = FNameEntry.readU16();
+    try {
+        if (offset_FNameEntry_Info !== 0) {
+            var FNameEntryHeader = FNameEntry.add(offset_FNameEntry_Info).readU16();     
+        } else {
+            var FNameEntryHeader = FNameEntry.readU16();
+        }
+    } catch(e) {
+        // console.log(e);
+        return "";
+    }
     // console.log(`FNameEntryHeader: ${FNameEntryHeader}`);
     var str_addr = FNameEntry.add(offset_FNameEntry_String);
+    // console.log(`str_addr: ${str_addr}`);
     var str_length = FNameEntryHeader >> FNameEntry_LenBit;
     var wide = FNameEntryHeader & 1;
+    if (wide) return "widestr";
 
     if (str_length > 0 && str_length < 250) {
         var str = str_addr.readUtf8String(str_length);
@@ -284,7 +391,11 @@ function getUObjectBaseObjectFromId(index) {
 
 function resolveProp(recurrce, prop) {
     if (prop) {
-        var cname = FField.getClassName(prop);
+        if (isBeforeUE425) {
+            var cname = UObject.getClassName(prop);
+        } else {
+            var cname = FField.getClassName(prop);
+        }
         // console.log(`resolveProp cname: ${cname}`);
 
         if (cname === "ObjectProperty" || cname === "WeakObjectProperty"
@@ -305,14 +416,8 @@ function resolveProp(recurrce, prop) {
         } else if (cname === "StructProperty") {
             var Struct = UStructProperty.getStruct(prop);
             // console.log(`StructProperty addr: ${Struct}`);
-            // return "None";
-            // return UObject.getName(Struct);
-            // if(UObject.isValid(Struct)){
             recurrce.push(...[Struct]);
             return UObject.getName(Struct);
-            // } else {
-            //     return "None";
-            // }
         } else if (cname === "ArrayProperty") {
             return resolveProp(recurrce, UArrayProperty.getInner(prop)) + "[]";
         } else if (cname === "SetProperty") {
@@ -353,7 +458,11 @@ function resolveProp(recurrce, prop) {
         } else if (cname === "DelegateProperty" || cname === "MulticastDelegateProperty") {
             return "delegate";
         } else {
-            return FField.getName(prop) + "(" + cname + ")";
+            if (isBeforeUE425) {
+                return UObject.getName(prop) + "(" + cname + ")";
+            } else {
+                return FField.getName(prop) + "(" + cname + ")";
+            }
         }
     }
     return "NULL";
@@ -362,10 +471,17 @@ function resolveProp(recurrce, prop) {
 function writeStructChild(childprop) {
     var recurrce = [];
     var child = childprop;
+    // console.log(`writeStructChild child before validation: ${child}`);
     while (UObject.isValid(child)) {
         var prop = child;
-        var oname = FField.getName(prop);
-        var cname = FField.getClassName(prop);
+        if (isBeforeUE425) {
+            var oname = UObject.getName(prop);
+            var cname = UObject.getClassName(prop);    
+        } else {
+            var oname = FField.getName(prop);
+            var cname = FField.getClassName(prop);
+        }
+        // console.log(`writeStructChild child after validation: ${child}`);
         // console.log(`oname: ${oname}, cname: ${cname}`);
         if (cname === "ObjectProperty" || cname === "WeakObjectProperty" || cname === "LazyObjectProperty" || cname === "AssetObjectProperty" || cname === "SoftObjectProperty") {
             var propertyClass = UObjectProperty.getPropertyClass(prop);
@@ -387,7 +503,7 @@ function writeStructChild(childprop) {
         } else if (cname === "SetProperty") {
             console.log(`\t${resolveProp(recurrce, USetProperty.getElementProp(prop))} ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "MapProperty") {
-            console.log(`\t${resolveProp(recurrce, UMapProperty.getKeyProp(prop))}, ${resolveProp(recurrce, UMapProperty.getValueProp(prop))}> ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+            console.log(`\t<${resolveProp(recurrce, UMapProperty.getKeyProp(prop))}, ${resolveProp(recurrce, UMapProperty.getValueProp(prop))}> ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "BoolProperty") {
             console.log(`\tbool ${oname} //(ByteOffset: ${ptr(UBoolProperty.getByteOffset(prop))}, ByteMask: ${UBoolProperty.getByteMask(prop)}, FieldMask: ${UBoolProperty.getFieldMask(prop)}) [Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "ByteProperty") {
@@ -422,14 +538,103 @@ function writeStructChild(childprop) {
             console.log(`\tdelegate ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "XigPtrProperty") {
             console.log(`\tXigPtrProperty ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+        } else if (isBeforeUE425) {
+            if (cname.startsWith("Function") || cname === "DelegateFunction") {
+                var returnVal = "void";
+                var params = "";
+                var flags = "";
+
+                var funcParam = UStruct.getChildren(prop);
+                // console.log(`funcParam: ${funcParam});
+                while (UObject.isValid(funcParam)) {
+                    var PropertyFlags = UProperty.getPropertyFlags(funcParam);
+                    // console.log(`PropertyFlags: ${PropertyFlags});
+                    if ((PropertyFlags & 0x0000000000000400) == 0x0000000000000400) {
+                        returnVal = resolveProp(recurrce, funcParam);
+                    } else {
+                        if ((PropertyFlags & 0x0000000000000100) == 0x0000000000000100) {
+                            params += "out ";
+                        }
+                        /*if((PropertyFlags & 0x0000000008000000) == 0x0000000008000000){
+                            params += "ref ";
+                        }*/
+                        if ((PropertyFlags & 0x0000000000000002) == 0x0000000000000002) {
+                            params += "const ";
+                        }
+                        // console.log(`funcParam will go in...: ${funcParam});
+                        params += resolveProp(recurrce, funcParam);
+                        // params += "blahblah";
+                        params += " ";
+                        params += UObject.getName(funcParam);
+                        params += ", ";
+                    }
+
+                    funcParam = UField.getNext(funcParam);
+                }
+
+                if (params.length > 0) {
+                    params = params.slice(0, -2);
+                }
+
+                var FunctionFlags = UFunction.getFunctionFlags(prop);
+                // console.log(`FunctionFlags: ${FunctionFlags});
+
+                if ((FunctionFlags & 0x00002000) == 0x00002000) {
+                    returnVal = "static " + returnVal;
+                }
+                /*if((FunctionFlags & 0x00000001) == 0x00000001){
+                    returnVal = "final " + returnVal;
+                }
+                if((FunctionFlags & 0x00020000) == 0x00020000){
+                    returnVal = "public " + returnVal;
+                }
+                if((FunctionFlags & 0x00040000) == 0x00040000){
+                    returnVal = "private " + returnVal;
+                }
+                if((FunctionFlags & 0x00080000) == 0x00080000){
+                    returnVal = "protected " + returnVal;
+                }*/
+
+                for (let mapping of funcFlags) {
+                    if ((FunctionFlags & mapping.flag) == mapping.flag) {
+                        flags += `${mapping.name}|`
+                    }
+                }
+
+                console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""}`);
+            } else if (cname === "Class" || cname === "Package") {
+            } else {
+                console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`);
+            }
         } else {
             console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`);
         }
 
-        child = FField.getNext(child);
+        if (isBeforeUE425) {
+            child = UField.getNext(child);
+        } else {
+            child = FField.getNext(child);
+        }
     }
     return recurrce;
 }
+
+var funcFlags = [
+    {flag:0x00000001, name: "Final"},   // Function is final (prebindable, non-overridable function).
+	{flag:0x00000004, name: "BlueprintAuthorityOly"},   // Function will only run if the object has network authority
+	{flag:0x00000008, name: "BlueprinCosmetic"},    // Function is cosmetic in nature and should not be invoked on dedicated servers
+	{flag:0x00000400, name: "Native"},  // Native function.
+	{flag:0x00000800, name: "Event"},   // Event function.
+	{flag:0x00002000, name: "Static"},  // Static function.
+    {flag:0x00008000, name: "UbergraphFunction"},   // Function is used as the merge 'ubergraph' for a blueprint, only assigned when using the persistent 'ubergraph' frame
+    {flag:0x00010000, name: "MulticastDlegate"},    // Function is a multi-cast delegate signature (also requires FUNC_Delegate to be set!)
+    {flag:0x00100000, name: "Delegate"},    // Function is delegate signature (either single-cast or multi-cast, depending on whether FUNC_MulticastDelegate is set.)
+    {flag:0x04000000, name: "BlueprintCallabl"},    // function can be called from blueprint code
+	{flag:0x08000000, name: "BlueprintEvent"},  // function can be overridden/implemented from a blueprint
+	{flag:0x10000000, name: "BlueprintPure"},    // function can be called from blueprint code, and is also pure (produces no side effects). If you set this, you should set FUNC_BlueprintCallable as well.
+    {flag:0x20000000, name: "EditorOnly"},  // function can only be called from an editor scrippt.
+    {flag:0x40000000, name: "Const"},   // function can be called from blueprint code, and only reads state (never writes state)
+]
 
 function writeStructChild_Func(childprop) {
     var recurrce = [];
@@ -439,10 +644,12 @@ function writeStructChild_Func(childprop) {
         var prop = child;
         var oname = UObject.getName(prop);
         var cname = UObject.getClassName(prop);
-
+        // console.log(`writeStructChild_Func child: ${child}`);
+        // console.log(`cname: ${cname}`);
         if (cname.startsWith("Function") || cname === "DelegateFunction") {
             var returnVal = "void";
             var params = "";
+            var flags = "";
 
             var funcParam = UStruct.getChildProperties(prop);
             // console.log(`funcParam: ${funcParam});
@@ -495,7 +702,14 @@ function writeStructChild_Func(childprop) {
                 returnVal = "protected " + returnVal;
             }*/
 
-            console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)}`);
+            for (let mapping of funcFlags) {
+                if ((FunctionFlags & mapping.flag) == mapping.flag) {
+                    flags += `${mapping.name}|`
+                }
+            }
+
+            console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""}`);
+        } else if (cname === "Class" || cname === "Package") {
         } else {
             console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`); 
         }
@@ -523,8 +737,12 @@ function writeStruct(clazz) {
         if (!nameIds.includes(nameId)) {
             nameIds.push(nameId);
             console.log(`Class: ${UStruct.getStructClassPath(currStruct)}`)
-            recurrce.push(...writeStructChild(UStruct.getChildProperties(currStruct)));
-            recurrce.push(...writeStructChild_Func(UStruct.getChildren(currStruct)));
+            if (isBeforeUE425) {
+                recurrce.push(...writeStructChild(UStruct.getChildren(currStruct)));
+            } else {
+                recurrce.push(...writeStructChild(UStruct.getChildProperties(currStruct)));
+                recurrce.push(...writeStructChild_Func(UStruct.getChildren(currStruct)));
+            }
         }
         currStruct = UStruct.getSuperClass(currStruct);
     }
@@ -576,6 +794,46 @@ function dumpSdk() {
     }
 }
 
+var completed = false;
+var GNamePatternFoundAddr;
+var GUObjectArrayPatternFoundAddr;
+function scanMemory(scanStart, scanSize, mempattern, forWhat) {
+    if (completed) {
+        console.log(`[*] Memory scan done for ${forWhat}!`);
+        if (forWhat === "GName" && GNamePatternFoundAddr === undefined) {
+            GNamePatternFoundAddr = ptr(0x0);
+        } else if (forWhat === "GUObjectArray" && GUObjectArrayPatternFoundAddr === undefined) {
+            GUObjectArrayPatternFoundAddr = ptr(0x0);
+        }
+        return;
+    }
+    Memory.scan(scanStart, scanSize, mempattern, {
+        onMatch: function (address, size) {
+            if (completed) return;
+            if (forWhat === "GName") {
+                GNamePatternFoundAddr = ptr(address);
+                completed = true;
+            } else if (forWhat === "GUObjectArray") {
+                console.log(`GUObjectArray pattern found ${address}`);
+                GUObjectArrayPatternFoundAddr = ptr(address);
+                completed = true;
+            }
+        },
+        onError: function(reason) {
+            var newstart = ptr(reason.match(/(0x[0-9a-f]+)/)[1]).add(0x4);
+            var newsize = scanSize - parseInt(newstart.sub(scanStart));
+            this.error = true;
+            scanMemory(newstart, newsize, mempattern, forWhat);
+        },
+        onComplete: function() {
+            if (!this.error) {
+                completed = true;
+                scanMemory(scanStart, scanSize, mempattern, forWhat);
+            }
+        }
+    })
+}
+
 // Find GName
 function findGName(moduleName) {
     var addr = Module.findExportByName(moduleName, "_Zeq12FNameEntryId5EName");
@@ -587,12 +845,16 @@ function findGName(moduleName) {
         hmm...not sure it's a correct pattern. I only checked three simple UE4 games
         */
         var pattern = "?8 ?? ?? ?? 08 01 ?? 91 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? 08 69 69 b8 1f 01 00 6b e0 17 9f 1a c0 03 5f d6";
-        var match = Memory.scanSync(module.base, module.size, pattern);
-        if (match.length === 1) {
+        try {
+            var match = Memory.scanSync(module.base, module.size, pattern);
+        } catch(e) {
+            console.log(`[!] error while scanning memory`);
+        }
+        if (match !== undefined && match.length === 1) {
             console.log(`[*] Found _Zeq12FNameEntryId5EName function address ${match[0].address}`);
             console.log(`[*] Intercept _Zeq12FNameEntryId5EName to get GName`);
             addr = match[0].address;
-        } else if (match.length > 1) {
+        } else if (match !== undefined && match.length > 1) {
             console.log(`[!] Found ${match.length} addresses`);
             console.log(`[!] You need to inspect these offsets to find GName`);
             for (var key in match) {
@@ -601,8 +863,28 @@ function findGName(moduleName) {
             GName = null;
             return;
         } else {
-            console.log(`[!] Cannot find GName in memory too. You need to find it by yourself`);
-            GName = null;
+            console.log(`[!] Cannot find GName. Try other pattern`);
+            pattern = "c8 00 00 37 ?? ?? ?? ?? 00 00 ?? 91";
+            scanMemory(module.base, module.size, pattern, "GName");
+
+            var int = setInterval(() => {
+                if (GNamePatternFoundAddr !== undefined && (ptr(GNamePatternFoundAddr) != "0x0")) {
+                    console.log(`[*] GName pattern found at ${GNamePatternFoundAddr}`);
+                    console.log(`[*] Disassemble it using armconvert.com`)
+                    var arrayBuff = new Uint8Array(GNamePatternFoundAddr.add(0x4).readByteArray(8));
+                    var hex = bytes2hex(arrayBuff);
+                    var offset_GName = armConvert(hex, GNamePatternFoundAddr.add(0x4).sub(module.base), arch);
+                    console.log(`[*] offset of GName from the base address: ${offset_GName}`);
+                    GName = module.base.add(offset_GName);
+                    clearInterval(int);
+                    return;
+                } else if (GNamePatternFoundAddr !== undefined && (ptr(GNamePatternFoundAddr) == "0x0")) {
+                    console.log(`[!] Give up finding GName pattern in memory`);
+                    GName = null;
+                    clearInterval(int);
+                    return;
+                }
+            }, 1000);
             return;
         }
     } 
@@ -634,34 +916,95 @@ function bytes2hex(array) {
 // https://github.com/frida/frida/issues/1158#issuecomment-1227124335
 function armConvert(hex, offset, arch) {
     var askStr = '{"hex":"' + hex + '","offset":"' + offset + '","arch":"' + arch + '"}';
-    // console.log(askStr)
-    var str = ObjC.classes.NSString['alloc']()['initWithString:'](askStr.toString());
-    var postData = str.dataUsingEncoding_(4);
-    // console.log(postData.bytes().readUtf8String(postData.length()));
-    var len = str.length;
-    var strLength = ObjC.classes.NSString['stringWithFormat:']('%d', len);
-    var request = ObjC.classes.NSMutableURLRequest['alloc']()['init']();
-    var url = ObjC.classes.NSURL.URLWithString_('https://armconverter.com/api/convert');
-    var method = ObjC.classes.NSString['alloc']()['initWithString:']('POST');
-    var httpF = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Length');
-    var httpL  = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Type');
-    request.setURL_(url);
-    request.setHTTPMethod_(method);
-    request.setValue_forHTTPHeaderField_(strLength,httpF);
-    request.setValue_forHTTPHeaderField_("application/json", httpL);
-    request.setHTTPBody_(postData);
-    var nil = ObjC.Object(ptr("0x0"));
-    var resData = ObjC.classes.NSURLConnection['sendSynchronousRequest:returningResponse:error:'](request,nil,nil);
-    var resStr = resData.bytes().readUtf8String(resData.length());
-    var obj = JSON.parse(resStr);
-    var disassemResult = obj.asm.arm64[1];
-    var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
-    // console.log(`adrp: ${adrp}`);
-    var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
-    // console.log(`add: ${add}`);
-    return ptr(adrp).add(ptr(add));
+    if (platform === 'darwin') {
+        // console.log(askStr)
+        var str = ObjC.classes.NSString['alloc']()['initWithString:'](askStr.toString());
+        var postData = str.dataUsingEncoding_(4);
+        // console.log(postData.bytes().readUtf8String(postData.length()));
+        var len = str.length;
+        var strLength = ObjC.classes.NSString['stringWithFormat:']('%d', len);
+        var request = ObjC.classes.NSMutableURLRequest['alloc']()['init']();
+        var url = ObjC.classes.NSURL.URLWithString_('https://armconverter.com/api/convert');
+        var method = ObjC.classes.NSString['alloc']()['initWithString:']('POST');
+        var httpF = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Length');
+        var httpL  = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Type');
+        request.setURL_(url);
+        request.setHTTPMethod_(method);
+        request.setValue_forHTTPHeaderField_(strLength,httpF);
+        request.setValue_forHTTPHeaderField_("application/json", httpL);
+        request.setHTTPBody_(postData);
+        var nil = ObjC.Object(ptr("0x0"));
+        var resData = ObjC.classes.NSURLConnection['sendSynchronousRequest:returningResponse:error:'](request,nil,nil);
+        var resStr = resData.bytes().readUtf8String(resData.length());
+        var obj = JSON.parse(resStr);
+        var disassemResult = obj.asm.arm64[1];
+        var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
+        // console.log(`adrp: ${adrp}`);
+        var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
+        // console.log(`add: ${add}`);
+        return ptr(adrp).add(ptr(add));
+    } else if (platform === 'linux') {
+        var HttpURLConnection = Java.use("java.net.HttpURLConnection");
+        var URL = Java.use("java.net.URL");
+        var BufferedReader = Java.use("java.io.BufferedReader");
+        var BufferedWriter = Java.use("java.io.BufferedWriter");
+        var BufferedOutputStream = Java.use("java.io.BufferedOutputStream");
+        var OutputStreamWriter = Java.use("java.io.OutputStreamWriter");
+        var StringBuilder = Java.use("java.lang.StringBuilder");
+        var InputStreamReader = Java.use("java.io.InputStreamReader");
+
+        var url = URL.$new(Java.use("java.lang.String").$new('https://armconverter.com/api/convert'));
+        var conn = url.openConnection();
+        conn = Java.cast(conn, HttpURLConnection);
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(5000);
+        conn.setDoInput(true);
+        conn.setDoOutput(true);
+        conn.setChunkedStreamingMode(0);
+
+        const os = conn.getOutputStream();
+        const out = BufferedOutputStream.$new(os);
+        const osw = OutputStreamWriter.$new(out, Java.use("java.lang.String").$new("UTF-8"));
+        var writer = BufferedWriter.$new(osw);
+        let jsonBody = askStr.toString();
+        writer.$super.write(Java.use("java.lang.String").$new(jsonBody));
+        writer.flush();
+        writer.close();
+        os.close();
+
+        conn.connect();
+        var code = conn.getResponseCode();
+        var ret = null;
+        if (code == 200) {
+            var inputStream = conn.getInputStream();
+            var buffer = BufferedReader.$new(InputStreamReader.$new(inputStream));
+            var sb = StringBuilder.$new();
+            var line = null;
+            while ((line = buffer.readLine()) != null) {
+                sb.append(line);
+            }
+            var data = sb.toString();
+            var obj = JSON.parse(data);
+            var disassemResult = obj.asm.arm64[1];
+            console.log(`disassemResult: ${disassemResult}`);      
+            var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
+            // console.log(`adrp: ${adrp}`);
+            var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
+            // console.log(`add: ${add}`);
+            conn.disconnect();
+            return ptr(adrp).add(ptr(add));
+        } else {
+            console.log(`[!] armconverter.com connection error`);
+            GUObjectArray = null;
+            conn.disconnect();
+            return;
+        }
+    }
 }
 
+// Find GUObjectArray
 function findGUObjectArray(moduleName) {
     GUObjectArray = Module.findExportByName(moduleName, "GUObjectArray");
     // Seems GUObjectArray exported on Android, only iOS matter?
@@ -695,6 +1038,41 @@ function findGUObjectArray(moduleName) {
             GUObjectArray = null;
             return;
         }
+    } else if (GUObjectArray === null && platform === 'linux') {
+        console.log(`[!] Cannot find GUObjectArray`);
+        console.log(`[*] Try to search GUObjectArray on memory`);
+        var module = Process.findModuleByName(moduleName);
+        var pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
+
+        scanMemory(module.base, module.size, pattern, "GUObjectArray");
+
+        var int = setInterval(() => {
+            if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
+                console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
+                console.log(`[*] Disassemble it using armconvert.com`)
+                var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(8));
+                var hex = bytes2hex(arrayBuff);
+                var offset_GUObjectArray = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
+                console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
+                GUObjectArray = module.base.add(offset_GUObjectArray);
+                clearInterval(int);
+                return;
+            } else if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) == "0x0")) {
+                console.log(`[!] Give up finding GUObjectArray pattern in memory`);
+                GUObjectArray = undefined;
+                clearInterval(int);
+                return;
+            }
+        }, 1000);
+    }
+}
+
+function findAppId() {
+    if (platform === "linux") {
+        var pm = Java.use('android.app.ActivityThread').currentApplication();
+        return pm.getApplicationContext().getPackageName();
+    } else {
+        return ObjC.classes.NSBundle.mainBundle().bundleIdentifier().toString();
     }
 }
 
@@ -702,13 +1080,23 @@ function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
     findGUObjectArray(moduleName);
     findGName(moduleName);
+    var appId = findAppId();
+    setOffset(appId);
 
     var int = setInterval(() => {
-        if (GName !== undefined && GName !== null) {
+        if ((GName !== undefined && GName !== null) && (GUObjectArray !== undefined && GUObjectArray !== null)) {
             console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
-        } else if (GName === null) {
+        } else if ((GName !== undefined && GName !== null) && GUObjectArray === undefined) {
+            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            clearInterval(int);
+            return;
+        } else if (GName === null && (GUObjectArray !== undefined && GUObjectArray !== null)) {
+            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            clearInterval(int);
+            return;
+        } else if (GName === null && GUObjectArray === undefined) {
             console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
