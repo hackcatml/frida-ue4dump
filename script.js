@@ -140,7 +140,6 @@ function setOffset(appId) {
         //Class: UStruct
         offset_UStruct_SuperStruct = 0x40;
         offset_UStruct_Children = 0x48;
-        // It's UE4.24.3. no need before UE4.25
         offset_UStruct_ChildProperties = 0x0;
         //Class: UFunction
         offset_UFunction_FunctionFlags = 0x98;
