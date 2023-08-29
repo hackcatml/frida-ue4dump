@@ -3,6 +3,8 @@ var GUObjectArray;
 var GName;
 
 var nameIds = [];
+var enumClasses = [];
+var enumClassStr = "";
 var platform = Process.platform;
 var arch = Process.arch;
 var isBeforeUE425 = false;
@@ -38,6 +40,11 @@ var offset_UStruct_ChildProperties = 0x50;
 var offset_FField_Class = 0x8;
 var offset_FField_Next = 0x20;
 var offset_FField_Name = 0x28;
+//Class: UEnum
+var offset_UENum_Names = null;
+var offset_UENum_Count = null;
+var offset_UENum_Max = null;
+var enumItemSize = null;
 //Class: UFunction
 var offset_UFunction_FunctionFlags = 0xb0;
 var offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
@@ -118,6 +125,11 @@ function setOffset(appId) {
         //Class: UProperty
         offset_UProperty_ElementSize = 0x3c;
         offset_UProperty_size = 0x80;
+        //UEnum
+        offset_UENum_Names = 0x48;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x18;
         setOffsetProperty(offset_UProperty_size);
     } else if (appId === "com.vividgames.realboxing2") {    // Real Boxing 2
         isBeforeUE425 = true;
@@ -134,6 +146,11 @@ function setOffset(appId) {
         offset_UProperty_PropertyFlags = 0x38;
         offset_UProperty_OffsetInternal = 0x44;
         offset_UProperty_size = 0x70;
+        //UEnum
+        offset_UENum_Names = 0x40;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
     } else if (appId === "com.farlightgames.xgame.gp.kr") { // Dislyte(Android) from AndUE4Dumper(https://github.com/MJx0/AndUE4Dumper)
         isBeforeUE425 = true;
@@ -149,6 +166,18 @@ function setOffset(appId) {
         offset_UProperty_PropertyFlags = 0x38;
         offset_UProperty_OffsetInternal = 0x44;
         offset_UProperty_size = 0x70;
+        //UEnum
+        offset_UENum_Names = 0x40;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x10;
+        setOffsetProperty(offset_UProperty_size);
+    } else if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows') {   // Arena Breakout, Night Crows
+        //UEnum
+        offset_UENum_Names = 0x40;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
@@ -341,6 +370,33 @@ var UStructProperty = {
     }
 };
 
+var UEnum = {
+    getNamesArray: function(en) {
+        return en.add(offset_UENum_Names).readPointer();
+    },
+    getCount: function(en) {
+        return en.add(offset_UENum_Count).readU32();
+    }
+}
+
+var UEnumProperty = {
+    getEnum: function(prop) {
+        return prop.add(offset_UProperty_size + Process.pointerSize).readPointer();
+    },
+    getName: function(prop) {
+        return UObject.getName(this.getEnum(prop));
+    }
+}
+
+var UByteProperty = {
+    getEnum: function(prop) {
+        return prop.add(offset_UProperty_size).readPointer();
+    },
+    getName: function(prop) {
+        return UObject.getName(this.getEnum(prop));
+    }
+}
+
 function getFNameFromID(index) {
     var Block = index >> 16;
     var Offset = index & 65535;
@@ -427,7 +483,24 @@ function resolveProp(recurrce, prop) {
         } else if (cname === "BoolProperty") {
             return "bool";
         } else if (cname === "ByteProperty") {
-            return "byte";
+            var enumObj = UByteProperty.getEnum(prop);
+            if (offset_UENum_Names !== null && UObject.isValid(enumObj)) {
+                var enumName = UByteProperty.getName(prop);
+                if (!enumClasses.includes(enumName)) {
+                    enumClasses.push(enumName);
+                    enumClassStr += "enum " + enumName + " {";
+                    for (var count = 0; count < UEnum.getCount(enumObj); count++) {
+                        var index = UEnum.getNamesArray(enumObj).add(count * enumItemSize).readU32();
+                        enumClassStr += "\n\t" + getFNameFromID(index).replace(enumName + "::", "")
+                    }
+                    enumClassStr += "\n};\n";
+                    return "enum " + enumName;
+                } else {
+                    return "enum " + enumName;
+                }
+            } else {
+                return "byte";
+            }
         } else if (cname === "IntProperty") {
             return "int";
         } else if (cname === "Int8Property") {
@@ -447,7 +520,24 @@ function resolveProp(recurrce, prop) {
         } else if (cname === "FloatProperty") {
             return "float";
         } else if (cname === "EnumProperty") {
-            return "enum";
+            var enumName = UEnumProperty.getName(prop);
+            if (offset_UENum_Names !== null) {
+                var enumObj = UEnumProperty.getEnum(prop);
+                if (!enumClasses.includes(enumName)) {
+                    enumClasses.push(enumName);
+                    enumClassStr += "enum " + enumName + " {";
+                    for (var count = 0; count < UEnum.getCount(enumObj); count++) {
+                        var index = UEnum.getNamesArray(enumObj).add(count * enumItemSize).readU32();
+                        enumClassStr += "\n\t" + getFNameFromID(index).replace(enumName + "::", "")
+                    }
+                    enumClassStr += "\n};\n";
+                    return "enum " + enumName;
+                } else {
+                    return "enum " + enumName;
+                }
+            } else {
+                return "enum " + enumName;
+            }
         } else if (cname === "StrProperty") {
             return "FString";
         } else if (cname === "TextProperty") {
@@ -506,7 +596,18 @@ function writeStructChild(childprop) {
         } else if (cname === "BoolProperty") {
             console.log(`\tbool ${oname} //(ByteOffset: ${ptr(UBoolProperty.getByteOffset(prop))}, ByteMask: ${UBoolProperty.getByteMask(prop)}, FieldMask: ${UBoolProperty.getFieldMask(prop)}) [Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "ByteProperty") {
-            console.log(`\tbyte ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+            var enumObj = UByteProperty.getEnum(prop);
+            if (offset_UENum_Names !== null && UObject.isValid(enumObj)) {
+                var enumName = UByteProperty.getName(prop);
+                console.log(`\tenum ${enumName} ${oname} { //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+                for (var count = 0; count < UEnum.getCount(enumObj); count++) {
+                    var index = UEnum.getNamesArray(enumObj).add(count * enumItemSize).readU32();
+                    console.log(`\t\t${getFNameFromID(index).replace(enumName + "::", "")}`)
+                }
+                console.log("\t};")
+            } else {
+                console.log(`\tbyte ${oname} ${enumObj}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+            }
         } else if (cname === "IntProperty") {
             console.log(`\tint ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "Int8Property") {
@@ -526,7 +627,18 @@ function writeStructChild(childprop) {
         } else if (cname === "FloatProperty") {
             console.log(`\tfloat ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "EnumProperty") {
-            console.log(`\tenum ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+            var enumName = UEnumProperty.getName(prop);
+            if (offset_UENum_Names !== null) {
+                var enumObj = UEnumProperty.getEnum(prop);
+                console.log(`\tenum ${enumName} ${oname} { //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+                for (var count = 0; count < UEnum.getCount(enumObj); count++) {
+                    var index = UEnum.getNamesArray(enumObj).add(count * enumItemSize).readU32();
+                    console.log(`\t\t${getFNameFromID(index).replace(enumName + "::", "")}`)
+                }
+                console.log("\t};")
+            } else {
+                console.log(`\tenum ${enumName} ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+            }
         } else if (cname === "StrProperty") {
             console.log(`\tFString ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
         } else if (cname === "TextProperty") {
@@ -782,7 +894,7 @@ function dumpSdk() {
         return;
     }
     var ObjectCount = GUObjectArray.add(offset_FUObjectArray_TUObjectArray).add(offset_TUObjectArray_NumElements).readU32();
-    
+
     for (var i = 0; i < ObjectCount; i++) {
         var UObjectBaseObject = getUObjectBaseObjectFromId(i);
         // console.log(`UObjectBaseObject: ${UObjectBaseObject}`);
@@ -791,43 +903,66 @@ function dumpSdk() {
             writeStruct(clazz);
         }
     }
+    if (offset_UENum_Names !== null) console.log(enumClassStr);
 }
 
-var completed = false;
+var GNameSearchCompleted = false;
+var GUObjectArraySearchCompleted = false;
 var GNamePatternFoundAddr;
 var GUObjectArrayPatternFoundAddr;
-function scanMemory(scanStart, scanSize, mempattern, forWhat) {
-    if (completed) {
-        console.log(`[*] Memory scan done for ${forWhat}!`);
-        if (forWhat === "GName" && GNamePatternFoundAddr === undefined) {
+function scanMemoryForGName(scanStart, scanSize, mempattern) {
+    if (GNameSearchCompleted) {
+        console.log(`[*] Memory scan done for GName!`);
+        if (GNamePatternFoundAddr === undefined) {
             GNamePatternFoundAddr = ptr(0x0);
-        } else if (forWhat === "GUObjectArray" && GUObjectArrayPatternFoundAddr === undefined) {
+        }
+        return;
+    }
+    Memory.scan(scanStart, scanSize, mempattern, {
+        onMatch: function (address, size) {
+            if (GNameSearchCompleted) return;
+            GNamePatternFoundAddr = ptr(address);
+            GNameSearchCompleted = true;
+        },
+        onError: function(reason) {
+            var newstart = ptr(reason.match(/(0x[0-9a-f]+)/)[1]).add(0x4);
+            var newsize = scanSize - parseInt(newstart.sub(scanStart));
+            this.error = true;
+            scanMemoryForGName(newstart, newsize, mempattern);
+        },
+        onComplete: function() {
+            if (!this.error) {
+                GNameSearchCompleted = true;
+                scanMemoryForGName(scanStart, scanSize, mempattern);
+            }
+        }
+    })
+}
+
+function scanMemoryForGUObjectArray(scanStart, scanSize, mempattern) {
+    if (GUObjectArraySearchCompleted) {
+        console.log(`[*] Memory scan done for GUObjectArray!`);
+        if (GUObjectArrayPatternFoundAddr === undefined) {
             GUObjectArrayPatternFoundAddr = ptr(0x0);
         }
         return;
     }
     Memory.scan(scanStart, scanSize, mempattern, {
         onMatch: function (address, size) {
-            if (completed) return;
-            if (forWhat === "GName") {
-                GNamePatternFoundAddr = ptr(address);
-                completed = true;
-            } else if (forWhat === "GUObjectArray") {
-                console.log(`GUObjectArray pattern found ${address}`);
-                GUObjectArrayPatternFoundAddr = ptr(address);
-                completed = true;
-            }
+            if (GUObjectArraySearchCompleted) return;
+            GUObjectArrayPatternFoundAddr = ptr(address);
+            GUObjectArraySearchCompleted = true;
         },
         onError: function(reason) {
             var newstart = ptr(reason.match(/(0x[0-9a-f]+)/)[1]).add(0x4);
             var newsize = scanSize - parseInt(newstart.sub(scanStart));
             this.error = true;
-            scanMemory(newstart, newsize, mempattern, forWhat);
+            scanMemoryForGUObjectArray(newstart, newsize, mempattern);
         },
         onComplete: function() {
             if (!this.error) {
-                completed = true;
-                scanMemory(scanStart, scanSize, mempattern, forWhat);
+                GUObjectArraySearchCompleted = true;
+                scanMemoryForGUObjectArray(scanStart, scanSize, mempattern);
             }
         }
     })
@@ -847,7 +982,7 @@ function findGName(moduleName) {
         try {
             var match = Memory.scanSync(module.base, module.size, pattern);
         } catch(e) {
-            console.log(`[!] error while scanning memory`);
+            console.log(`[!] error while scanning GName in memory`);
         }
         if (match !== undefined && match.length === 1) {
             console.log(`[*] Found _Zeq12FNameEntryId5EName function address ${match[0].address}`);
@@ -864,7 +999,7 @@ function findGName(moduleName) {
         } else {
             console.log(`[!] Cannot find GName. Try other pattern`);
             pattern = "c8 00 00 37 ?? ?? ?? ?? 00 00 ?? 91";
-            scanMemory(module.base, module.size, pattern, "GName");
+            scanMemoryForGName(module.base, module.size, pattern);
 
             var int = setInterval(() => {
                 if (GNamePatternFoundAddr !== undefined && (ptr(GNamePatternFoundAddr) != "0x0")) {
@@ -872,7 +1007,10 @@ function findGName(moduleName) {
                     console.log(`[*] Disassemble it using armconvert.com`)
                     var arrayBuff = new Uint8Array(GNamePatternFoundAddr.add(0x4).readByteArray(8));
                     var hex = bytes2hex(arrayBuff);
-                    var offset_GName = armConvert(hex, GNamePatternFoundAddr.add(0x4).sub(module.base), arch);
+                    var result = armConvert(hex, GNamePatternFoundAddr.add(0x4).sub(module.base), arch);
+                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                    var add = result.match(/add.*#([0-9a-fx]+)/)[1];
+                    var offset_GName = ptr(adrp).add(ptr(add));
                     console.log(`[*] offset of GName from the base address: ${offset_GName}`);
                     GName = module.base.add(offset_GName);
                     clearInterval(int);
@@ -937,11 +1075,7 @@ function armConvert(hex, offset, arch) {
         var resStr = resData.bytes().readUtf8String(resData.length());
         var obj = JSON.parse(resStr);
         var disassemResult = obj.asm.arm64[1];
-        var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
-        // console.log(`adrp: ${adrp}`);
-        var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
-        // console.log(`add: ${add}`);
-        return ptr(adrp).add(ptr(add));
+        return disassemResult;
     } else if (platform === 'linux') {
         var HttpURLConnection = Java.use("java.net.HttpURLConnection");
         var URL = Java.use("java.net.URL");
@@ -987,13 +1121,7 @@ function armConvert(hex, offset, arch) {
             var data = sb.toString();
             var obj = JSON.parse(data);
             var disassemResult = obj.asm.arm64[1];
-            console.log(`disassemResult: ${disassemResult}`);      
-            var adrp = disassemResult.match(/adrp.*#([0-9a-fx]+)/)[1];
-            // console.log(`adrp: ${adrp}`);
-            var add = disassemResult.match(/add.*#([0-9a-fx]+)/)[1];
-            // console.log(`add: ${add}`);
-            conn.disconnect();
-            return ptr(adrp).add(ptr(add));
+            return disassemResult;
         } else {
             console.log(`[!] armconverter.com connection error`);
             GUObjectArray = null;
@@ -1021,7 +1149,10 @@ function findGUObjectArray(moduleName) {
             console.log(`[*] Disassemble it using armconvert.com`)
             var arrayBuff = new Uint8Array(match[0].address.add(0xc).readByteArray(8));
             var hex = bytes2hex(arrayBuff);
-            var offset_GUObjectArray = armConvert(hex, match[0].address.add(0xc).sub(module.base), arch);
+            var result = armConvert(hex, match[0].address.add(0xc).sub(module.base), arch);
+            var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+            var add = result.match(/add.*#([0-9a-fx]+)/)[1];
+            var offset_GUObjectArray = ptr(adrp).add(ptr(add));
             console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
             GUObjectArray = module.base.add(offset_GUObjectArray);
         } else if (match.length > 1) {
@@ -1041,19 +1172,38 @@ function findGUObjectArray(moduleName) {
         console.log(`[!] Cannot find GUObjectArray`);
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
-        var pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
-
-        scanMemory(module.base, module.size, pattern, "GUObjectArray");
+        var pattern = null;
+        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows") {
+            /* Arena Breakout, Night Crows pattern */
+            pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
+        } else {
+            pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
+        }
+        scanMemoryForGUObjectArray(module.base, module.size, pattern);
 
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
                 console.log(`[*] Disassemble it using armconvert.com`)
-                var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(8));
-                var hex = bytes2hex(arrayBuff);
-                var offset_GUObjectArray = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
-                console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
-                GUObjectArray = module.base.add(offset_GUObjectArray);
+                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows") {
+                    arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
+                    hex = bytes2hex(arrayBuff);
+                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0x10).sub(module.base), arch);
+                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                    var ldr = result.match(/ldr.*#([0-9a-fx]+)/)[1];
+                    var offset_GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
+                    console.log(`[*] offset of GUObjectArray_ptr from the base address: ${offset_GUObjectArray_ptr}`);
+                    GUObjectArray = module.base.add(offset_GUObjectArray_ptr).readPointer();
+                } else {
+                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(8));
+                    var hex = bytes2hex(arrayBuff);
+                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
+                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                    var add = result.match(/add.*#([0-9a-fx]+)/)[1];
+                    var offset_GUObjectArray = ptr(adrp).add(ptr(add));
+                    console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
+                    GUObjectArray = module.base.add(offset_GUObjectArray);
+                }
                 clearInterval(int);
                 return;
             } else if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) == "0x0")) {
