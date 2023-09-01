@@ -131,12 +131,12 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x18;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === "com.vividgames.realboxing2") {    // Real Boxing 2
+    } else if (appId === "com.vividgames.realboxing2" || appId === "com.kakaogames.odin") {    // Real Boxing 2, Odin Vahalla Rising. UE4.24.3
         isBeforeUE425 = true;
         //Class: UStruct
         offset_UStruct_SuperStruct = 0x40;
         offset_UStruct_Children = 0x48;
-        // It's UE4.24.3. no need before UE4.25
+        // no need before UE4.25
         offset_UStruct_ChildProperties = 0x0;
         //Class: UFunction
         offset_UFunction_FunctionFlags = 0x98;
@@ -606,7 +606,7 @@ function writeStructChild(childprop) {
                 }
                 console.log("\t};")
             } else {
-                console.log(`\tbyte ${oname} ${enumObj}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
+                console.log(`\tbyte ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);
             }
         } else if (cname === "IntProperty") {
             console.log(`\tint ${oname}; //[Offset: ${ptr(UProperty.getOffset(prop))}, Size: ${UProperty.getElementSize(prop)}]`);

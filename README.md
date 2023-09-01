@@ -4,6 +4,7 @@ Heavily based on [UE4Dumper](https://github.com/kp7742/UE4Dumper)<br>
 Tested on the games listed below. It might not work correctly with other games unless you fix the offsets in script.js
 * NIGHT CROWS (Android, iOS, UE5? seems fine)
 * Arena Breakout (Android, iOS)
+* Odin, Vahalla Rising (Android, iOS)
 * Real Boxing 2 (Android, iOS)
 * Mortal Kombat (Android)
 * Dislyte (Android)
