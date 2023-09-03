@@ -184,6 +184,31 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);  
+    } else if (appId === 'com.netease.ma100asia') { // Dead by Daylight(UE > 4.25)
+        // FNamePool
+        FNameStride = 0x4
+        // FNameEntry
+        offset_FNameEntry_Info = 0x4;
+        FNameEntry_LenBit = 1;
+        offset_FNameEntry_String = 0x6;
+        //Class: UStruct
+        offset_UStruct_SuperStruct = 0x48;
+        offset_UStruct_Children = 0x50;
+        offset_UStruct_ChildProperties = 0x58;
+        //Class: UFunction
+        offset_UFunction_FunctionFlags = 0xb8;
+        offset_UFunction_Func = offset_UFunction_FunctionFlags + 0x28;
+        //Class: UProperty
+        offset_UProperty_ElementSize = 0x3c;
+        offset_UProperty_PropertyFlags = 0x40;
+        offset_UProperty_OffsetInternal = 0x4c;
+        offset_UProperty_size = 0x80;
+        //UEnum
+        offset_UENum_Names = 0x48;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x18;
+        setOffsetProperty(offset_UProperty_size);
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
     }   
@@ -1195,8 +1220,8 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows") {
-            /* Arena Breakout, Night Crows pattern */
+        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia") {
+            /* Arena Breakout, Night Crows, Dead by Daylight pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
             pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
@@ -1207,7 +1232,7 @@ function findGUObjectArray(moduleName) {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
                 console.log(`[*] Disassemble it using armconvert.com`)
-                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows") {
+                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia") {
                     var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
                     var hex = bytes2hex(arrayBuff);
                     var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0x10).sub(module.base), arch);
