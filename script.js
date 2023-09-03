@@ -8,6 +8,7 @@ var enumClassStr = "";
 var platform = Process.platform;
 var arch = Process.arch;
 var isBeforeUE425 = false;
+var isActorDump = false;
 
 // Global
 var FUObjectItemPadd = 0x0;
@@ -73,6 +74,8 @@ var offset_UMapProperty_ValueProp = null;
 var offset_USetProperty_ElementProp = null;
 //Class: UStructProperty
 var offset_UStructProperty_Struct = null;
+//Class: UEnumProperty
+var offset_UEnumProperty_EnumClass = null;
 //Class: UWorld
 var offset_UWorld_PersistentLevel = 0x30;
 //Class: ULevel
@@ -99,6 +102,8 @@ function setOffsetProperty(offset_UProperty_size) {
     offset_USetProperty_ElementProp = offset_UProperty_size;
     
     offset_UStructProperty_Struct = offset_UProperty_size;
+
+    offset_UEnumProperty_EnumClass = offset_UProperty_size + Process.pointerSize;
 }
 
 function setOffset(appId) {
@@ -172,13 +177,13 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows') {   // Arena Breakout, Night Crows
+    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW
         //UEnum
         offset_UENum_Names = 0x40;
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
-        setOffsetProperty(offset_UProperty_size);
+        setOffsetProperty(offset_UProperty_size);  
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
     }   
@@ -381,7 +386,7 @@ var UEnum = {
 
 var UEnumProperty = {
     getEnum: function(prop) {
-        return prop.add(offset_UProperty_size + Process.pointerSize).readPointer();
+        return prop.add(offset_UEnumProperty_EnumClass).readPointer();
     },
     getName: function(prop) {
         return UObject.getName(this.getEnum(prop));
@@ -847,12 +852,24 @@ function writeStruct(clazz) {
         // console.log(nameId);
         if (!nameIds.includes(nameId)) {
             nameIds.push(nameId);
-            console.log(`Class: ${UStruct.getStructClassPath(currStruct)}`)
-            if (isBeforeUE425) {
-                recurrce.push(...writeStructChild(UStruct.getChildren(currStruct)));
+            if (isActorDump) {
+                if (UStruct.getStructClassPath(currStruct) === 'Actor.Object') {
+                    console.log(`Class: ${UStruct.getStructClassPath(currStruct)} ${currStruct}`)    // for debugging
+                    if (isBeforeUE425) {
+                        recurrce.push(...writeStructChild(UStruct.getChildren(currStruct)));
+                    } else {
+                        recurrce.push(...writeStructChild(UStruct.getChildProperties(currStruct)));
+                        recurrce.push(...writeStructChild_Func(UStruct.getChildren(currStruct)));
+                    }
+                }
             } else {
-                recurrce.push(...writeStructChild(UStruct.getChildProperties(currStruct)));
-                recurrce.push(...writeStructChild_Func(UStruct.getChildren(currStruct)));
+                console.log(`Class: ${UStruct.getStructClassPath(currStruct)}`)
+                if (isBeforeUE425) {
+                    recurrce.push(...writeStructChild(UStruct.getChildren(currStruct)));
+                } else {
+                    recurrce.push(...writeStructChild(UStruct.getChildProperties(currStruct)));
+                    recurrce.push(...writeStructChild_Func(UStruct.getChildren(currStruct)));
+                }
             }
         }
         currStruct = UStruct.getSuperClass(currStruct);
@@ -861,6 +878,11 @@ function writeStruct(clazz) {
     for (var key in recurrce) {
         writeStruct(recurrce[key]);
     }
+}
+
+function dumpActor() {
+    isActorDump = true;
+    dumpSdk();
 }
 
 function dumpObjects() {
@@ -897,8 +919,8 @@ function dumpSdk() {
 
     for (var i = 0; i < ObjectCount; i++) {
         var UObjectBaseObject = getUObjectBaseObjectFromId(i);
-        // console.log(`UObjectBaseObject: ${UObjectBaseObject}`);
         if (UObject.isValid(UObjectBaseObject)) {
+            // console.log(`UObjectBaseObject: ${UObjectBaseObject}`);
             var clazz = UObject.getClass(UObjectBaseObject);
             writeStruct(clazz);
         }
@@ -1186,10 +1208,22 @@ function findGUObjectArray(moduleName) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
                 console.log(`[*] Disassemble it using armconvert.com`)
                 if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows") {
-                    arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
-                    hex = bytes2hex(arrayBuff);
+                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
+                    var hex = bytes2hex(arrayBuff);
                     var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0x10).sub(module.base), arch);
                     var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                    var ldr = result.match(/ldr.*#([0-9a-fx]+)/)[1];
+                    var offset_GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
+                    console.log(`[*] offset of GUObjectArray_ptr from the base address: ${offset_GUObjectArray_ptr}`);
+                    GUObjectArray = module.base.add(offset_GUObjectArray_ptr).readPointer();
+                } else if (findAppId() === 'com.miraclegames.farlight84') {
+                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.sub(0x4).readByteArray(4));
+                    var hex = bytes2hex(arrayBuff);
+                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.sub(0x4).sub(module.base), arch);
+                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                    arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(4));
+                    hex = bytes2hex(arrayBuff);
+                    result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
                     var ldr = result.match(/ldr.*#([0-9a-fx]+)/)[1];
                     var offset_GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
                     console.log(`[*] offset of GUObjectArray_ptr from the base address: ${offset_GUObjectArray_ptr}`);
@@ -1198,11 +1232,16 @@ function findGUObjectArray(moduleName) {
                     var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(8));
                     var hex = bytes2hex(arrayBuff);
                     var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
-                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-                    var add = result.match(/add.*#([0-9a-fx]+)/)[1];
-                    var offset_GUObjectArray = ptr(adrp).add(ptr(add));
-                    console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
-                    GUObjectArray = module.base.add(offset_GUObjectArray);
+                    try {
+                        var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
+                        var add = result.match(/add.*#([0-9a-fx]+)/)[1];
+                        var offset_GUObjectArray = ptr(adrp).add(ptr(add));
+                        console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
+                        GUObjectArray = module.base.add(offset_GUObjectArray);
+                    } catch (e) {
+                        console.log(e.stack);
+                        GUObjectArray = undefined;
+                    }
                 }
                 clearInterval(int);
                 return;
