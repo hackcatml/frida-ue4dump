@@ -136,7 +136,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x18;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === "com.vividgames.realboxing2" || appId === "com.kakaogames.odin") {    // Real Boxing 2, Odin Vahalla Rising. UE4.24.3
+    } else if (appId === "com.vividgames.realboxing2" || appId === "com.kakaogames.odin" || appId === "com.kakaogames.twodin") {    // Real Boxing 2, Odin Vahalla Rising. UE4.24.3
         isBeforeUE425 = true;
         //Class: UStruct
         offset_UStruct_SuperStruct = 0x40;
@@ -184,7 +184,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);  
-    } else if (appId === 'com.netease.ma100asia') { // Dead by Daylight(UE > 4.25)
+    } else if (appId === 'com.netease.ma100asia' || appId === 'com.netease.dbdena') { // Dead by Daylight(UE > 4.25)
         // FNamePool
         FNameStride = 0x4
         // FNameEntry
@@ -1220,7 +1220,7 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia") {
+        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
             /* Arena Breakout, Night Crows, Dead by Daylight pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
@@ -1232,7 +1232,7 @@ function findGUObjectArray(moduleName) {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
                 console.log(`[*] Disassemble it using armconvert.com`)
-                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia") {
+                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
                     var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
                     var hex = bytes2hex(arrayBuff);
                     var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0x10).sub(module.base), arch);
