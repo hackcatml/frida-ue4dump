@@ -1220,9 +1220,12 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
-            /* Arena Breakout, Night Crows, Dead by Daylight pattern */
+        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
+            /* Arena Breakout, Dead by Daylight pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
+        } else if (findAppId() === "com.wemade.nightcrows") {
+            /* Night Crows pattern */
+            pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 21 ?? 1? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
             pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
         }
