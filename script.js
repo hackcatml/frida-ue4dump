@@ -1,4 +1,5 @@
 var moduleBase;
+var appId;
 var GUObjectArray;
 var GName;
 
@@ -208,6 +209,13 @@ function setOffset(appId) {
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x18;
+        setOffsetProperty(offset_UProperty_size);
+    } else if (appId === 'com.netease.octopath.kr') {
+        //UEnum
+        offset_UENum_Names = 0x40;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
@@ -998,7 +1006,19 @@ function scanMemoryForGUObjectArray(scanStart, scanSize, mempattern) {
         onMatch: function (address, size) {
             if (GUObjectArraySearchCompleted) return;
             GUObjectArrayPatternFoundAddr = ptr(address);
-            GUObjectArraySearchCompleted = true;
+
+            if (appId === 'com.wemade.nightcrows') {
+                var adrp, add;
+                var disasm = Instruction.parse(GUObjectArrayPatternFoundAddr);
+                adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+                
+                disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0x8));
+                add = disasm.operands.find(op => op.type === 'imm')?.value;
+                
+                if (ptr(adrp).add(ptr(add)).readUtf8String() === "CloseDisregardForGC" || ptr(adrp).add(ptr(add)).readUtf8String() === "DisableDisregardForGC") {
+                    GUObjectArraySearchCompleted = true;
+                }
+            }
         },
         onError: function(reason) {
             var newstart = ptr(reason.match(/(0x[0-9a-f]+)/)[1]).add(0x4);
@@ -1051,15 +1071,21 @@ function findGName(moduleName) {
             var int = setInterval(() => {
                 if (GNamePatternFoundAddr !== undefined && (ptr(GNamePatternFoundAddr) != "0x0")) {
                     console.log(`[*] GName pattern found at ${GNamePatternFoundAddr}`);
-                    console.log(`[*] Disassemble it using armconvert.com`)
-                    var arrayBuff = new Uint8Array(GNamePatternFoundAddr.add(0x4).readByteArray(8));
-                    var hex = bytes2hex(arrayBuff);
-                    var result = armConvert(hex, GNamePatternFoundAddr.add(0x4).sub(module.base), arch);
-                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-                    var add = result.match(/add.*#([0-9a-fx]+)/)[1];
-                    var offset_GName = ptr(adrp).add(ptr(add));
-                    console.log(`[*] offset of GName from the base address: ${offset_GName}`);
-                    GName = module.base.add(offset_GName);
+                    
+                    var adrp, add;
+                    let disasm = Instruction.parse(GNamePatternFoundAddr.add(0x4));
+                    adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+                    
+                    disasm = Instruction.parse(GNamePatternFoundAddr.add(0x8));
+                    add = disasm.operands.find(op => op.type === 'imm')?.value;
+                    
+                    try {
+                        GName = ptr(adrp).add(ptr(add));
+                        console.log(`[*] Got GName: ${GName}`);
+                    } catch (e) {
+                        console.log(`[!] ${e.stack}`);
+                        GName = null;
+                    }
                     clearInterval(int);
                     return;
                 } else if (GNamePatternFoundAddr !== undefined && (ptr(GNamePatternFoundAddr) == "0x0")) {
@@ -1080,6 +1106,7 @@ function findGName(moduleName) {
             // console.log(JSON.stringify(this.context.x8).length);
             if (this.context.x8 != ptr(0x0) && JSON.stringify(this.context.x8).length > 10) {
                 GName = ptr(this.context.x8);
+                console.log(`[*] Got GName: ${GName}`);
                 Interceptor.detachAll();
             }
         },
@@ -1087,95 +1114,6 @@ function findGName(moduleName) {
             // Interceptor.detachAll();
         }
     })
-}
-
-function bytes2hex(array) {
-    var result = '';
-    for(var i = 0; i < array.length; ++i) {
-        result += ('0' + (array[i] & 0xFF).toString(16)).slice(-2);
-    }
-    return result;
-}
-
-// https://github.com/frida/frida/issues/1158#issuecomment-1227124335
-function armConvert(hex, offset, arch) {
-    var askStr = '{"hex":"' + hex + '","offset":"' + offset + '","arch":"' + arch + '"}';
-    if (platform === 'darwin') {
-        // console.log(askStr)
-        var str = ObjC.classes.NSString['alloc']()['initWithString:'](askStr.toString());
-        var postData = str.dataUsingEncoding_(4);
-        // console.log(postData.bytes().readUtf8String(postData.length()));
-        var len = str.length;
-        var strLength = ObjC.classes.NSString['stringWithFormat:']('%d', len);
-        var request = ObjC.classes.NSMutableURLRequest['alloc']()['init']();
-        var url = ObjC.classes.NSURL.URLWithString_('https://armconverter.com/api/convert');
-        var method = ObjC.classes.NSString['alloc']()['initWithString:']('POST');
-        var httpF = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Length');
-        var httpL  = ObjC.classes.NSString['alloc']()['initWithString:']('Content-Type');
-        request.setURL_(url);
-        request.setHTTPMethod_(method);
-        request.setValue_forHTTPHeaderField_(strLength,httpF);
-        request.setValue_forHTTPHeaderField_("application/json", httpL);
-        request.setHTTPBody_(postData);
-        var nil = ObjC.Object(ptr("0x0"));
-        var resData = ObjC.classes.NSURLConnection['sendSynchronousRequest:returningResponse:error:'](request,nil,nil);
-        var resStr = resData.bytes().readUtf8String(resData.length());
-        var obj = JSON.parse(resStr);
-        var disassemResult = obj.asm.arm64[1];
-        return disassemResult;
-    } else if (platform === 'linux') {
-        var HttpURLConnection = Java.use("java.net.HttpURLConnection");
-        var URL = Java.use("java.net.URL");
-        var BufferedReader = Java.use("java.io.BufferedReader");
-        var BufferedWriter = Java.use("java.io.BufferedWriter");
-        var BufferedOutputStream = Java.use("java.io.BufferedOutputStream");
-        var OutputStreamWriter = Java.use("java.io.OutputStreamWriter");
-        var StringBuilder = Java.use("java.lang.StringBuilder");
-        var InputStreamReader = Java.use("java.io.InputStreamReader");
-
-        var url = URL.$new(Java.use("java.lang.String").$new('https://armconverter.com/api/convert'));
-        var conn = url.openConnection();
-        conn = Java.cast(conn, HttpURLConnection);
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setConnectTimeout(5000);
-        conn.setReadTimeout(5000);
-        conn.setDoInput(true);
-        conn.setDoOutput(true);
-        conn.setChunkedStreamingMode(0);
-
-        const os = conn.getOutputStream();
-        const out = BufferedOutputStream.$new(os);
-        const osw = OutputStreamWriter.$new(out, Java.use("java.lang.String").$new("UTF-8"));
-        var writer = BufferedWriter.$new(osw);
-        let jsonBody = askStr.toString();
-        writer.$super.write(Java.use("java.lang.String").$new(jsonBody));
-        writer.flush();
-        writer.close();
-        os.close();
-
-        conn.connect();
-        var code = conn.getResponseCode();
-        var ret = null;
-        if (code == 200) {
-            var inputStream = conn.getInputStream();
-            var buffer = BufferedReader.$new(InputStreamReader.$new(inputStream));
-            var sb = StringBuilder.$new();
-            var line = null;
-            while ((line = buffer.readLine()) != null) {
-                sb.append(line);
-            }
-            var data = sb.toString();
-            var obj = JSON.parse(data);
-            var disassemResult = obj.asm.arm64[1];
-            return disassemResult;
-        } else {
-            console.log(`[!] armconverter.com connection error`);
-            GUObjectArray = null;
-            conn.disconnect();
-            return;
-        }
-    }
 }
 
 // Find GUObjectArray
@@ -1192,16 +1130,23 @@ function findGUObjectArray(moduleName) {
         var pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
         var match = Memory.scanSync(module.base, module.size, pattern);
         if (match.length === 1) {
+            GUObjectArrayPatternFoundAddr = match[0].address;
             console.log(`[*] Found FUObjectArray::AllocateObjectPool(&GUObjectArray, int, int, bool) pattern at ${match[0].address}`);
-            console.log(`[*] Disassemble it using armconvert.com`)
-            var arrayBuff = new Uint8Array(match[0].address.add(0xc).readByteArray(8));
-            var hex = bytes2hex(arrayBuff);
-            var result = armConvert(hex, match[0].address.add(0xc).sub(module.base), arch);
-            var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-            var add = result.match(/add.*#([0-9a-fx]+)/)[1];
-            var offset_GUObjectArray = ptr(adrp).add(ptr(add));
-            console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
-            GUObjectArray = module.base.add(offset_GUObjectArray);
+
+            var adrp, add;
+            var disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0xc));
+            adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+            
+            disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0x10));
+            add = disasm.operands.find(op => op.type === 'imm')?.value;
+            
+            try {
+                GUObjectArray = ptr(adrp).add(ptr(add));
+                console.log(`[*] Got GUObjectArray: ${GUObjectArray}`);
+            } catch (e) {
+                console.log(`[!] ${e.stack}`);
+                GUObjectArray = undefined;
+            }
         } else if (match.length > 1) {
             console.log(`[!] Found ${match.length} addresses`);
             console.log(`[!] You need to inspect these offsets to find GUObjectArray`);
@@ -1220,12 +1165,12 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
+        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena" || findAppId() === 'com.netease.octopath.kr') {
             /* Arena Breakout, Dead by Daylight pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else if (findAppId() === "com.wemade.nightcrows") {
             /* Night Crows pattern */
-            pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 21 ?? 1? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
+            pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 21 ?? ?? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
             pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
         }
@@ -1234,40 +1179,61 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                console.log(`[*] Disassemble it using armconvert.com`)
-                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena") {
-                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0x10).readByteArray(8));
-                    var hex = bytes2hex(arrayBuff);
-                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0x10).sub(module.base), arch);
-                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-                    var ldr = result.match(/ldr.*#([0-9a-fx]+)/)[1];
-                    var offset_GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
-                    console.log(`[*] offset of GUObjectArray_ptr from the base address: ${offset_GUObjectArray_ptr}`);
-                    GUObjectArray = module.base.add(offset_GUObjectArray_ptr).readPointer();
-                } else if (findAppId() === 'com.miraclegames.farlight84') {
-                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.sub(0x4).readByteArray(4));
-                    var hex = bytes2hex(arrayBuff);
-                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.sub(0x4).sub(module.base), arch);
-                    var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-                    arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(4));
-                    hex = bytes2hex(arrayBuff);
-                    result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
-                    var ldr = result.match(/ldr.*#([0-9a-fx]+)/)[1];
-                    var offset_GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
-                    console.log(`[*] offset of GUObjectArray_ptr from the base address: ${offset_GUObjectArray_ptr}`);
-                    GUObjectArray = module.base.add(offset_GUObjectArray_ptr).readPointer();
-                } else {
-                    var arrayBuff = new Uint8Array(GUObjectArrayPatternFoundAddr.add(0xc).readByteArray(8));
-                    var hex = bytes2hex(arrayBuff);
-                    var result = armConvert(hex, GUObjectArrayPatternFoundAddr.add(0xc).sub(module.base), arch);
+                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena" || findAppId() === 'com.netease.octopath.kr') {
+                    var adrp, ldr;
+                    for (let off = 0;; off += 4) {
+                        let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
+                        if (disasm.mnemonic === 'adrp') {
+                            adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+                        
+                            disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off + 4));
+                            if (disasm.mnemonic === 'ldr') {
+                                ldr = disasm.operands.find(op => op.type === 'mem')?.value.disp;
+                                break; // exit loop after finding the sequence adrp followed by ldr
+                            }
+                        }
+                        if (off == 4 * 10) break;
+                    }
+
                     try {
-                        var adrp = result.match(/adrp.*#([0-9a-fx]+)/)[1];
-                        var add = result.match(/add.*#([0-9a-fx]+)/)[1];
-                        var offset_GUObjectArray = ptr(adrp).add(ptr(add));
-                        console.log(`[*] offset of GUObjectArray from the base address: ${offset_GUObjectArray}`);
-                        GUObjectArray = module.base.add(offset_GUObjectArray);
+                        var GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
+                        console.log(`[*] GUObjectArray_ptr: ${GUObjectArray_ptr}`);
+                        GUObjectArray = ptr(GUObjectArray_ptr).readPointer();
+                        console.log(`[*] Got GUObjectArray: ${GUObjectArray}`);
                     } catch (e) {
-                        console.log(e.stack);
+                        console.log(`[!] ${e.stack}`);
+                        GUObjectArray = undefined;
+                    }
+                } else if (findAppId() === 'com.miraclegames.farlight84') {
+                    var adrp, ldr;
+                    let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.sub(0x4));
+                    adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+                    
+                    disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0xc));
+                    ldr = disasm.operands.find(op => op.type === 'mem')?.value.disp;
+                    
+                    try {
+                        var GUObjectArray_ptr = ptr(adrp).add(ptr(ldr));
+                        console.log(`[*] GUObjectArray_ptr: ${GUObjectArray_ptr}`);
+                        GUObjectArray = ptr(GUObjectArray_ptr).readPointer();
+                        console.log(`[*] Got GUObjectArray: ${GUObjectArray}`);
+                    } catch (e) {
+                        console.log(`[!] ${e.stack}`);
+                        GUObjectArray = undefined;
+                    }
+                } else {
+                    var adrp, add;
+                    let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0xc));
+                    adrp = disasm.operands.find(op => op.type === 'imm')?.value;
+                    
+                    disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(0x10));
+                    add = disasm.operands.find(op => op.type === 'imm')?.value;
+                    
+                    try {
+                        GUObjectArray = ptr(adrp).add(ptr(add));
+                        console.log(`[*] Got GUObjectArray: ${GUObjectArray}`);
+                    } catch (e) {
+                        console.log(`[!] ${e.stack}`);
                         GUObjectArray = undefined;
                     }
                 }
@@ -1296,7 +1262,7 @@ function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
     findGUObjectArray(moduleName);
     findGName(moduleName);
-    var appId = findAppId();
+    appId = findAppId();
     setOffset(appId);
 
     var int = setInterval(() => {

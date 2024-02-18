@@ -8,7 +8,7 @@ Tested on the games listed below. It might not work correctly with other games u
 * Real Boxing 2 (Android, iOS)
 * Mortal Kombat (Android)
 * Dislyte (Android)
-
+* Octopath Traveler: Champions of the Continent (Android, iOS)
 
 # Usage
 1. Attach
