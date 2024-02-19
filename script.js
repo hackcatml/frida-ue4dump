@@ -178,7 +178,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW
+    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite
         //UEnum
         offset_UENum_Names = 0x40;
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
@@ -209,13 +209,6 @@ function setOffset(appId) {
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x18;
-        setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.netease.octopath.kr') {
-        //UEnum
-        offset_UENum_Names = 0x40;
-        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
-        offset_UENum_Max = offset_UENum_Count + 0x4;
-        enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
@@ -1119,7 +1112,6 @@ function findGName(moduleName) {
 // Find GUObjectArray
 function findGUObjectArray(moduleName) {
     GUObjectArray = Module.findExportByName(moduleName, "GUObjectArray");
-    // Seems GUObjectArray exported on Android, only iOS matter?
     if (GUObjectArray === null && platform === 'darwin') {
         console.log(`[!] Cannot find GUObjectArray`);
         console.log(`[*] Try to search GUObjectArray on memory`);
@@ -1165,10 +1157,10 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena" || findAppId() === 'com.netease.octopath.kr') {
-            /* Arena Breakout, Dead by Daylight pattern */
+        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr') {
+            /* Arena Breakout, Dead by Daylight, octopath pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
-        } else if (findAppId() === "com.wemade.nightcrows") {
+        } else if (appId === "com.wemade.nightcrows") {
             /* Night Crows pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 21 ?? ?? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
@@ -1179,7 +1171,7 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                if (findAppId() === 'com.proximabeta.mf.uamo' || findAppId() === "com.wemade.nightcrows" || findAppId() === "com.netease.ma100asia" || findAppId() === "com.netease.dbdena" || findAppId() === 'com.netease.octopath.kr') {
+                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal') {
                     var adrp, ldr;
                     for (let off = 0;; off += 4) {
                         let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
@@ -1204,7 +1196,7 @@ function findGUObjectArray(moduleName) {
                         console.log(`[!] ${e.stack}`);
                         GUObjectArray = undefined;
                     }
-                } else if (findAppId() === 'com.miraclegames.farlight84') {
+                } else if (appId === 'com.miraclegames.farlight84') {
                     var adrp, ldr;
                     let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.sub(0x4));
                     adrp = disasm.operands.find(op => op.type === 'imm')?.value;
@@ -1260,9 +1252,9 @@ function findAppId() {
 
 function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
+    appId = findAppId();
     findGUObjectArray(moduleName);
     findGName(moduleName);
-    appId = findAppId();
     setOffset(appId);
 
     var int = setInterval(() => {

@@ -9,6 +9,7 @@ Tested on the games listed below. It might not work correctly with other games u
 * Mortal Kombat (Android)
 * Dislyte (Android)
 * Octopath Traveler: Champions of the Continent (Android, iOS)
+* Torchlight: Infinite (Android, iOS)
 
 # Usage
 1. Attach
