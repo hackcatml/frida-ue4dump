@@ -10,6 +10,7 @@ Tested on the games listed below. It might not work correctly with other games u
 * Dislyte (Android)
 * Octopath Traveler: Champions of the Continent (Android, iOS)
 * Torchlight: Infinite (Android, iOS)
+* Black Clover Mobile (KR, JP) (Android)
 
 # Usage
 1. Attach
