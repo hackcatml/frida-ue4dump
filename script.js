@@ -178,7 +178,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios") {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite, Black Clover Mobile (kr), Tower of Fantasy 
+    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios" || appId === 'com.netmarble.arthdal') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite, Black Clover Mobile (kr), Tower of Fantasy, Arthdal Chronicles
         //UEnum
         offset_UENum_Names = 0x40;
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
@@ -1157,7 +1157,7 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp") {
+        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal') {
             /* Arena Breakout, Dead by Daylight, octopath pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else if (appId === "com.wemade.nightcrows") {
@@ -1171,7 +1171,7 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp") {
+                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal') {
                     var adrp, ldr;
                     for (let off = 0;; off += 4) {
                         let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
