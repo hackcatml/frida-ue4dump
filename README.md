@@ -12,6 +12,7 @@ Tested on the games listed below. It might not work correctly with other games u
 * Torchlight: Infinite (Android, iOS)
 * Black Clover Mobile (KR, JP) (Android, iOS)
 * Tower of Fantasy (Android, iOS)
+* 아스달 연대기: 세개의 세력 (Arthdal Chronicles) (Android, iOS)
 
 # Usage
 1. Attach
