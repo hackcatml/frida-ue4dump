@@ -178,7 +178,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios" || appId === 'com.netmarble.arthdal') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite, Black Clover Mobile (kr), Tower of Fantasy, Arthdal Chronicles
+    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios" || appId === 'com.netmarble.arthdal' || appId === 'com.kakaogames.archewar') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite, Black Clover Mobile (kr), Tower of Fantasy, Arthdal Chronicles, ArcheAge War
         //UEnum
         offset_UENum_Names = 0x40;
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
