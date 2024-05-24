@@ -185,7 +185,7 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);  
-    } else if (appId === 'com.netease.ma100asia' || appId === 'com.netease.dbdena') { // Dead by Daylight(UE > 4.25)
+    } else if (appId === 'com.netease.ma100asia' || appId === 'com.netease.dbdena' || appId === 'com.kurogame.wutheringwaves.global') { // Dead by Daylight, Wuthering Waves (UE > 4.25)
         // FNamePool
         FNameStride = 0x4
         // FNameEntry
