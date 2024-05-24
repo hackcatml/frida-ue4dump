@@ -14,6 +14,7 @@ Tested on the games listed below. It might not work correctly with other games u
 * Tower of Fantasy (Android, iOS)
 * 아스달 연대기: 세개의 세력 (Arthdal Chronicles) (Android, iOS)
 * 아키에이지 워 (ArcheAge War) (Android)
+* 명조: 워더링 웨이브 (Wuthering Waves) (Android, iOS)
 
 # Usage
 1. Attach
