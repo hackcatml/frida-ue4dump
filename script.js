@@ -1157,8 +1157,8 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal') {
-            /* Arena Breakout, Dead by Daylight, octopath pattern */
+        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
+            /* Arena Breakout, Dead by Daylight, Octopath, Black Clover, Tower of Fantasy, Arthdal Chronicles, farlight84 pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else if (appId === "com.wemade.nightcrows") {
             /* Night Crows pattern */
@@ -1171,7 +1171,7 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal') {
+                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
                     var adrp, ldr;
                     for (let off = 0;; off += 4) {
                         let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
@@ -1196,7 +1196,7 @@ function findGUObjectArray(moduleName) {
                         console.log(`[!] ${e.stack}`);
                         GUObjectArray = undefined;
                     }
-                } else if (appId === 'com.miraclegames.farlight84') {
+                } else if (appId === 'com.miraclegames.farlight84.old') { // Not working for the latest version of farlight84, so I just changed package name by adding the .old suffix
                     var adrp, ldr;
                     let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.sub(0x4));
                     adrp = disasm.operands.find(op => op.type === 'imm')?.value;
@@ -1250,28 +1250,304 @@ function findAppId() {
     }
 }
 
+/* Find Unreal Engine Version */
+/* Need to Parse elf, parse Mach-O for finding unreal engine version */
+/* Some variables and functions for elf parsing */
+var O_RDONLY = 0;
+var SEEK_SET = 0;
+
+var p_types = {
+    "PT_NULL":		0,		/* Program header table entry unused */
+    "PT_LOAD":		1,		/* Loadable program segment */
+    "PT_DYNAMIC":	2,		/* Dynamic linking information */
+    "PT_INTERP":	3,		/* Program interpreter */
+    "PT_NOTE":		4,		/* Auxiliary information */
+    "PT_SHLIB":	    5,		/* Reserved */
+    "PT_PHDR":		6,		/* Entry for header table itself */
+    "PT_TLS":		7,		/* Thread-local storage segment */
+    "PT_NUM":		8,		/* Number of defined types */
+    "PT_LOOS":		0x60000000,	/* Start of OS-specific */
+    "PT_GNU_EH_FRAME":	0x6474e550,	/* GCC .eh_frame_hdr segment */
+    "PT_GNU_STACK":	0x6474e551,	/* Indicates stack executability */
+    "PT_GNU_RELRO":	0x6474e552,	/* Read-only after relocation */
+    "PT_GNU_PROPERTY":	0x6474e553,	/* GNU property */
+    "PT_LOSUNW":	0x6ffffffa,
+    "PT_SUNWBSS":	0x6ffffffa,	/* Sun Specific segment */
+    "PT_SUNWSTACK":	0x6ffffffb,	/* Stack segment */
+    "PT_HISUNW":	0x6fffffff,
+    "PT_HIOS":		0x6fffffff,	/* End of OS-specific */
+    "PT_LOPROC":	0x70000000,	/* Start of processor-specific */
+    "PT_HIPROC":	0x7fffffff,	/* End of processor-specific */
+}
+
+var open = new NativeFunction(Module.findExportByName(null, "open"), "int", ["pointer", "int", "int"])
+var close = new NativeFunction(Module.findExportByName(null, "close"), "int", ["int"]);
+var lseek = new NativeFunction(Module.findExportByName(null, "lseek"), "int", ["int", "int", "int"]);
+var read = new NativeFunction(Module.findExportByName(null, "read"), "int", ["int", "pointer", "int"]);
+
+var PT_LOAD_data_offset = null;
+var PT_LOAD_data_size = null;
+/* Some variables and functions for elf parsing */
+
+/* Parsing ELF */
+function parseElf(base) {
+    base = ptr(base);
+    var module = Process.findModuleByAddress(base);
+    var fd = null;
+    if (module !== null) {
+        fd = open(Memory.allocUtf8String(module.path), O_RDONLY, 0);
+    }
+    
+    // Read elf header
+    var magic = "464c457f"
+    var elf_magic = base.readU32()
+    if (parseInt(elf_magic).toString(16) != magic) {
+        console.log("[!] Wrong magic...ignore")
+    }
+
+    var arch = Process.arch
+    var is32bit = arch == "arm" ? 1 : 0 // 1:32 0:64
+
+    var size_of_Elf32_Ehdr = 0x34;
+    var off_of_Elf32_Ehdr_phentsize = 42;
+    var off_of_Elf32_Ehdr_phnum = 44;
+
+    var size_of_Elf64_Ehdr = 0x40;
+    var off_of_Elf64_Ehdr_phentsize = 54;
+    var off_of_Elf64_Ehdr_phnum = 56;
+
+    // Parse Ehdr(Elf header)
+    var ehdrs_from_file = null;
+    var phoff = is32bit ? size_of_Elf32_Ehdr : size_of_Elf64_Ehdr   // Program header table file offset
+    var phentsize = is32bit ? base.add(off_of_Elf32_Ehdr_phentsize).readU16() : base.add(off_of_Elf64_Ehdr_phentsize).readU16();    // Size of entries in the program header table
+    if (is32bit && phentsize != 32) {  // 0x20
+        console.log("[!] Wrong e_phentsize. Should be 32. Let's assume it's 32");
+        phentsize = 32;
+    } else if (!is32bit && phentsize != 56) {
+        console.log("[!] Wrong e_phentsize. Should be 56. Let's assume it's 56");
+        phentsize = 56;
+    }
+    var phnum = is32bit ? base.add(off_of_Elf32_Ehdr_phnum).readU16() : base.add(off_of_Elf64_Ehdr_phnum).readU16();    // Number of entries in program header table
+    // If phnum is 0, try to get it from the file
+    if (phnum == 0) {
+        if (fd != null && fd !== -1){
+            console.log("[!] phnum is 0. Try to get it from the file")
+            ehdrs_from_file = Memory.alloc(64);
+            lseek(fd, 0, SEEK_SET);
+            read(fd, ehdrs_from_file, 64);
+            phnum = is32bit ? ehdrs_from_file.add(off_of_Elf32_Ehdr_phnum).readU16() : ehdrs_from_file.add(off_of_Elf64_Ehdr_phnum).readU16();
+            if (phnum == 0) {
+                console.log("[!] phnum is still 0. Let's assume it's 10. because we just need to find .dynamic section");
+                phnum = 10;
+            } else {
+                console.log(`[*] phnum from the file: ${phnum}`)
+            }
+        } else {
+            console.log("[!] phnum is 0. Let's assume it's 10. because we just need to find .dynamic section")
+            phnum = 10;
+        }
+    }
+
+    // Parse Phdr(Program header)
+    var phdrs = base.add(phoff);
+    var PT_LOAD_count = 0;
+    for (var i = 0; i < phnum; i++) {
+        var phdr = phdrs.add(i * phentsize);
+        var p_type = phdr.readU32();
+
+        // if p_type is 0 check if it's really 0 from the file
+        var phdrs_from_file = null;
+        if (p_type === 0 && fd != null && fd !== -1) {
+            phdrs_from_file = Memory.alloc(phnum * phentsize);
+            lseek(fd, phoff, SEEK_SET);
+            read(fd, phdrs_from_file, phnum * phentsize);
+            p_type = phdrs_from_file.add(i * phentsize).readU32();
+        }
+        var p_type_sym = null;
+
+        // check if p_type matches the defined p_type
+        var p_type_exists = false;
+        for (let key in p_types) {
+            if (p_types[key] === p_type) {
+                p_type_exists = true;
+                p_type_sym = key;
+                break;
+            }
+        }
+        if (!p_type_exists) break;
+
+        var p_vaddr = is32bit ? phdr.add(0x8).readU32() : phdr.add(0x10).readU64();
+        var p_memsz = is32bit ? phdr.add(0x14).readU32() : phdr.add(0x28).readU64();
+        var p_flags = is32bit ? phdr.add(0x18).readU32() : phdr.add(0x4).readU32();
+
+        // if p_flags is 0, check it from the file
+        if (p_flags === 0 && fd != null && fd !== -1) {
+            phdrs_from_file = Memory.alloc(phnum * phentsize);
+            lseek(fd, phoff, SEEK_SET);
+            read(fd, phdrs_from_file, phnum * phentsize);
+            var phdr_from_file = phdrs_from_file.add(i * phentsize);
+            p_vaddr = is32bit ? phdr_from_file.add(0x8).readU32() : phdr_from_file.add(0x10).readU64();
+            p_memsz = is32bit ? phdr_from_file.add(0x14).readU32() : phdr_from_file.add(0x28).readU64();
+        }
+
+        // The UE version string is in the .bss section, which is covered by the .data section
+        // .data section usually starts from the 4th PT_LOAD
+        if (p_type_sym === 'PT_LOAD') {
+            PT_LOAD_count++;
+            PT_LOAD_data_offset = p_vaddr;
+            PT_LOAD_data_size = p_memsz;
+        }
+
+        if (p_type_sym !== 'PT_LOAD' && PT_LOAD_count >= 4) {
+            break;
+        }
+        // Weird case (Black Clover mobile), just set offset 0x0, size as module's size
+        else if (p_type_sym !== 'PT_LOAD' && (PT_LOAD_count >= 1 && PT_LOAD_count < 4)) {
+            PT_LOAD_data_offset = 0x0;
+            PT_LOAD_data_size = module.size;
+            break;
+        }
+    }
+}
+/* Parsing ELF */
+
+/* Parsing MachO */
+var DATA_segment_data_section_offset = null;
+var DATA_segment_data_section_size = null;
+function parseMachO(base) {
+    base = ptr(base)
+    var magic = base.readU32();
+    var is64bit = false;
+    if (magic == 0xfeedfacf) {
+        is64bit = true;
+        var number_of_commands_offset = 0x10
+        var command_size_offset = 0x4
+        var segment_name_offset = 0x8
+        var vm_address_offset = 0x18
+        var vm_size_offset = 0x20
+        var file_offset = 0x28
+        var number_of_sections_offset = 0x40
+        var section64_header_base_offset = 0x48
+        var section64_header_size = 0x50
+    } else {
+        console.log('Unknown magic:' + magic);
+    }
+    var cmdnum = base.add(number_of_commands_offset).readU32();
+    // send({'parseMachO': {'cmdnum': cmdnum}})
+    var cmdoff = is64bit ? 0x20 : 0x1C;
+    for (var i = 0; i < cmdnum; i++) {
+        var cmd = base.add(cmdoff).readU32();
+        var cmdsize = base.add(cmdoff + command_size_offset).readU32();
+        if (cmd === 0x19) { // SEGMENT_64
+            var segname = base.add(cmdoff + segment_name_offset).readUtf8String();
+            var vmaddr = base.add(cmdoff + vm_address_offset).readU32();
+            var vmsize = base.add(cmdoff + vm_size_offset).readU32();
+            var fileoffset = base.add(cmdoff + file_offset).readU32();
+            var nsects = base.add(cmdoff + number_of_sections_offset).readU8();
+            var secbase = base.add(cmdoff + section64_header_base_offset);
+
+            if (base.add(cmdoff + command_size_offset).readU32() >= section64_header_base_offset + nsects * section64_header_size) {
+                var DATA_segment_data_section_index = null;
+                for (var i = 0; i < nsects; i++) {
+                    var secname = secbase.add(i * section64_header_size).readUtf8String()
+                    var section_start_offset = secbase.add(i * section64_header_size + 0x30).readU32();
+
+                    // The UE version string is in the __DATA segment's __data
+                    if (segname === '__DATA' && secname === '__data') {
+                        DATA_segment_data_section_index = i;
+                        DATA_segment_data_section_offset = section_start_offset;
+                    } else if (segname === '__DATA' && DATA_segment_data_section_index != null && i == (DATA_segment_data_section_index + 1)) {
+                        DATA_segment_data_section_size = section_start_offset - DATA_segment_data_section_offset;
+                        break;
+                    }
+                }
+            }
+        }
+        if (DATA_segment_data_section_offset != null && DATA_segment_data_section_size != null) {
+            break;
+        }
+        cmdoff += cmdsize;
+    }
+}
+/* Parsing MachO */
+/* Need to Parse elf, parse Mach-O for finding unreal engine version */
+
+/* Scan memory for finding Unreal Engine Version */
+var UEVersion = null;
+var scanMemoryForUEVersionDone = false;
+function scanMemoryForUEVersion(scanStart, scanSize, mempattern, module) {
+    Memory.scan(scanStart, scanSize, mempattern, {
+        onMatch: function (address, size) {
+            if (scanMemoryForUEVersionDone) return;
+            // console.log(`[!] UE versiong string found at: ${address}`)
+            // The address that refers to the address that stores the version string - 0x40 == the address that stores the version string
+            if (address.add(0x40).readPointer() == address.toString()) {
+                UEVersion = address.readU8().toString() + '.' + address.add(0x2).readU8().toString() + '.' + address.add(0x4).readU8().toString();
+                console.log(`[*] UE version: ${UEVersion}`);
+                scanMemoryForUEVersionDone = true;
+            }
+        },
+        onComplete: function() {
+            if (UEVersion == null) {
+                scanMemoryForUEVersion(module.base, module.size, mempattern, module);
+            }
+            else if (UEVersion != null) {
+                scanMemoryForUEVersionDone = true;
+            }
+        }
+    })
+}
+/* Scan memory for finding Unreal Engine Version */
+
+function findUEVersion(moduleName) {
+    var module = Process.findModuleByName(moduleName);
+    var UE4_pattern = "04 00 ?? 00 0? 00 00 00";
+    var UE5_pattern = "05 00 ?? 00 ?? 00 00 00";
+    var scanStart = null;
+    var scanSize = null;
+    if (Process.platform === 'linux') {
+        parseElf(module.base);
+        // console.log(PT_LOAD_data_offset);
+        // console.log(PT_LOAD_data_size);
+        scanStart = module.base.add(PT_LOAD_data_offset);
+        scanSize = PT_LOAD_data_size;
+    }
+    else if (Process.platform === 'darwin') {
+        parseMachO(module.base);
+        // console.log(DATA_segment_data_section_offset);
+        // console.log(DATA_segment_data_section_size);
+        scanStart = module.base.add(DATA_segment_data_section_offset);
+        scanSize = DATA_segment_data_section_size;
+    }
+    console.log(`[*] Scan UE Version`);
+    scanMemoryForUEVersion(scanStart, scanSize, UE4_pattern, module);
+    scanMemoryForUEVersion(scanStart, scanSize, UE5_pattern, module);
+}
+/* Find Unreal Engine Version */
+
 function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
     appId = findAppId();
+    findUEVersion(moduleName);
     findGUObjectArray(moduleName);
     findGName(moduleName);
     setOffset(appId);
 
     var int = setInterval(() => {
         if ((GName !== undefined && GName !== null) && (GUObjectArray !== undefined && GUObjectArray !== null)) {
-            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            console.log(`\n[*] set ${moduleName} (${appId})\nbase: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
         } else if ((GName !== undefined && GName !== null) && GUObjectArray === undefined) {
-            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            console.log(`\n[*] set ${moduleName} (${appId})\nbase: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
         } else if (GName === null && (GUObjectArray !== undefined && GUObjectArray !== null)) {
-            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            console.log(`\n[*] set ${moduleName} (${appId})\nbase: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
         } else if (GName === null && GUObjectArray === undefined) {
-            console.log(`\n[*] set ${moduleName} base: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
+            console.log(`\n[*] set ${moduleName} (${appId})\nbase: ${moduleBase}, GUObjectArray: ${GUObjectArray}, GName: ${GName}`);
             clearInterval(int);
             return;
         }
