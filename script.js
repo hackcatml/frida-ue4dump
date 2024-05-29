@@ -11,6 +11,13 @@ var arch = Process.arch;
 var isBeforeUE425 = false;
 var isActorDump = false;
 
+var O_RDONLY = 0;
+var SEEK_SET = 0;
+var open = new NativeFunction(Module.findExportByName(null, "open"), "int", ["pointer", "int", "int"])
+var close = new NativeFunction(Module.findExportByName(null, "close"), "int", ["int"]);
+var lseek = new NativeFunction(Module.findExportByName(null, "lseek"), "int", ["int", "int", "int"]);
+var read = new NativeFunction(Module.findExportByName(null, "read"), "int", ["int", "pointer", "int"]);
+
 // Global
 var FUObjectItemPadd = 0x0;
 var FUObjectItemSize = 0x18;
@@ -1243,8 +1250,16 @@ function findGUObjectArray(moduleName) {
 
 function findAppId() {
     if (platform === "linux") {
-        var pm = Java.use('android.app.ActivityThread').currentApplication();
-        return pm.getApplicationContext().getPackageName();
+        var path = Memory.allocUtf8String('/proc/self/cmdline');
+        var fd = open(path, O_RDONLY, 0);
+        if (fd != -1) {
+            var buffer = Memory.alloc(0x1000);
+            var result = read(fd, buffer, 0x1000);
+            close(fd);
+            result = ptr(buffer).readCString();
+            return result;
+        }
+        return "dunno.package.name";
     } else {
         return ObjC.classes.NSBundle.mainBundle().bundleIdentifier().toString();
     }
@@ -1253,9 +1268,6 @@ function findAppId() {
 /* Find Unreal Engine Version */
 /* Need to Parse elf, parse Mach-O for finding unreal engine version */
 /* Some variables and functions for elf parsing */
-var O_RDONLY = 0;
-var SEEK_SET = 0;
-
 var p_types = {
     "PT_NULL":		0,		/* Program header table entry unused */
     "PT_LOAD":		1,		/* Loadable program segment */
@@ -1279,11 +1291,6 @@ var p_types = {
     "PT_LOPROC":	0x70000000,	/* Start of processor-specific */
     "PT_HIPROC":	0x7fffffff,	/* End of processor-specific */
 }
-
-var open = new NativeFunction(Module.findExportByName(null, "open"), "int", ["pointer", "int", "int"])
-var close = new NativeFunction(Module.findExportByName(null, "close"), "int", ["int"]);
-var lseek = new NativeFunction(Module.findExportByName(null, "lseek"), "int", ["int", "int", "int"]);
-var read = new NativeFunction(Module.findExportByName(null, "read"), "int", ["int", "pointer", "int"]);
 
 var PT_LOAD_data_offset = null;
 var PT_LOAD_data_size = null;
