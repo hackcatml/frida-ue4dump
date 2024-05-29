@@ -18,8 +18,13 @@ Tested on the games listed below. It might not work correctly with other games u
 
 # Usage
 1. Attach
+- Real Device
 ```
 frida -Ul script.js <UE4 Game>
+```
+- Emulator
+```
+frida -Ul script.js --realm=emulated <UE4 Game>
 ```
 
 2. Set
