@@ -116,8 +116,7 @@ function setOffsetProperty(offset_UProperty_size) {
 
 function setOffset(appId) {
     // Mortal Kombat(Android) offsets from AndUE4Dumper(https://github.com/MJx0/AndUE4Dumper)
-    if (appId === "com.wb.goog.mkx") {
-        isBeforeUE425 = false;
+    if (appId === "com.wb.goog.mkx") {  // UE 4.27.2
         // FNamePool
         FNameStride = 0x4
         // FNameEntry
@@ -185,20 +184,22 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);
-    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios" || appId === 'com.netmarble.arthdal' || appId === 'com.kakaogames.archewar') {    // farlight 84(UE > 4.25), Arena Breakout, Night Crows, LineageW, octopath traveler, torchlight infinite, Black Clover Mobile (kr), Tower of Fantasy, Arthdal Chronicles, ArcheAge War
+    } else if (appId === 'com.farlightgames.farlight84.iosglobal' || appId === 'com.miraclegames.farlight84' || appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === 'com.wemade.nightcrows' || appId === 'com.ncsoft.lineagew' || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId ==='com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === "com.tof.ios" || appId === 'com.netmarble.arthdal' || appId === 'com.kakaogames.archewar') {    // farlight 84(UE 4.25.3), Arena Breakout(kr, cn)(UE 4.26.1), Night Crows, LineageW, octopath traveler(UE 4.26.2), torchlight infinite(UE 4.26.2), Black Clover Mobile(kr, jp)(UE 4.27.2), Tower of Fantasy, Arthdal Chronicles(UE 4.27.1), ArcheAge War
         //UEnum
         offset_UENum_Names = 0x40;
         offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x10;
         setOffsetProperty(offset_UProperty_size);  
-    } else if (appId === 'com.netease.ma100asia' || appId === 'com.netease.dbdena' || appId === 'com.kurogame.wutheringwaves.global') { // Dead by Daylight, Wuthering Waves (UE > 4.25)
+    } else if (appId === 'com.netease.ma100asia' || appId === 'com.netease.dbdena' || appId === 'com.kurogame.wutheringwaves.global') { // Dead by Daylight(UE 4.27.2), Wuthering Waves(UE 4.26.2)
         // FNamePool
         FNameStride = 0x4
         // FNameEntry
         offset_FNameEntry_Info = 0x4;
         FNameEntry_LenBit = 1;
         offset_FNameEntry_String = 0x6;
+        //Class: UField
+        offset_UField_Next = 0x30;
         //Class: UStruct
         offset_UStruct_SuperStruct = 0x48;
         offset_UStruct_Children = 0x50;
@@ -750,7 +751,7 @@ function writeStructChild(childprop) {
                     }
                 }
 
-                console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""}`);
+                console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""} ${isActorDump ? ("// Object addr: " + child) : ""}`);
             } else if (cname === "Class" || cname === "Package") {
             } else {
                 console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`);
@@ -857,7 +858,7 @@ function writeStructChild_Func(childprop) {
                 }
             }
 
-            console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""}`);
+            console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""} ${isActorDump ? ("// Object addr: " + child) : ""}`);
         } else if (cname === "Class" || cname === "Package") {
         } else {
             console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`); 
@@ -887,7 +888,7 @@ function writeStruct(clazz) {
             nameIds.push(nameId);
             if (isActorDump) {
                 if (UStruct.getStructClassPath(currStruct) === 'Actor.Object') {
-                    console.log(`Class: ${UStruct.getStructClassPath(currStruct)} ${currStruct}`)    // for debugging
+                    console.log(`Class: ${UStruct.getStructClassPath(currStruct)} // ${currStruct}`)    // for debugging
                     if (isBeforeUE425) {
                         recurrce.push(...writeStructChild(UStruct.getChildren(currStruct)));
                     } else {
@@ -933,9 +934,8 @@ function dumpObjects() {
         var UObjectBaseObject = getUObjectBaseObjectFromId(i);
         if (UObject.isValid(UObjectBaseObject)) {
             var name = UObject.getName(UObjectBaseObject);
-            console.log(`${i}. name: ${name}`);
             var className = UObject.getClassName(UObjectBaseObject);
-            console.log(`${i}. class: ${className}`);
+            console.log(`${i}. Class: ${className}\n\tObjectName: ${name} // ${UObjectBaseObject}`);
         }
     }
 }
@@ -948,6 +948,11 @@ function dumpSdk() {
         console.log(`Provide GUObjectArray address by GUObjectArray = moduleBase.add(<offset of GUObjectArray>);`);
         return;
     }
+    // empty below variables before performing the dump
+    if (nameIds.length > 0) nameIds.length = 0;
+    if (enumClasses.length > 0) enumClasses.length = 0;
+    if (enumClassStr != "") enumClassStr = "";
+
     var ObjectCount = GUObjectArray.add(offset_FUObjectArray_TUObjectArray).add(offset_TUObjectArray_NumElements).readU32();
 
     for (var i = 0; i < ObjectCount; i++) {
@@ -1164,7 +1169,7 @@ function findGUObjectArray(moduleName) {
         console.log(`[*] Try to search GUObjectArray on memory`);
         var module = Process.findModuleByName(moduleName);
         var pattern = null;
-        if (appId === 'com.proximabeta.mf.uamo' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
+        if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
             /* Arena Breakout, Dead by Daylight, Octopath, Black Clover, Tower of Fantasy, Arthdal Chronicles, farlight84 pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else if (appId === "com.wemade.nightcrows") {
@@ -1178,7 +1183,7 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                if (appId === 'com.proximabeta.mf.uamo' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
+                if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
                     var adrp, ldr;
                     for (let off = 0;; off += 4) {
                         let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
@@ -1507,6 +1512,8 @@ function scanMemoryForUEVersion(scanStart, scanSize, mempattern, module) {
 /* Scan memory for finding Unreal Engine Version */
 
 function findUEVersion(moduleName) {
+    UEVersion = null;
+    scanMemoryForUEVersionDone = false;
     var module = Process.findModuleByName(moduleName);
     var UE4_pattern = "04 00 ?? 00 0? 00 00 00";
     var UE5_pattern = "05 00 ?? 00 ?? 00 00 00";
