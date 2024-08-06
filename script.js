@@ -218,6 +218,23 @@ function setOffset(appId) {
         offset_UENum_Max = offset_UENum_Count + 0x4;
         enumItemSize = 0x18;
         setOffsetProperty(offset_UProperty_size);
+    } else if (appId === 'com.GreenGoGames.RooftopPrakourFreerun') {    // Rooftops Parkour Freerun (UE 5.4.2)
+        //Class: FField
+        offset_FField_Class = 0x8;
+        offset_FField_Next = 0x18;
+        offset_FField_Name = 0x20;
+        //Class: UProperty
+        offset_UProperty_ElementSize = 0x30;
+        offset_UProperty_PropertyFlags = 0x38;
+        offset_UProperty_OffsetInternal = 0x44;
+        offset_UProperty_size = 0x70;
+        //UEnum
+        offset_UENum_Names = 0x40;
+        offset_UENum_Count = offset_UENum_Names + Process.pointerSize;
+        offset_UENum_Max = offset_UENum_Count + 0x4;
+        enumItemSize = 0x10;
+        setOffsetProperty(offset_UProperty_size);
+        offset_UArrayProperty_InnerProperty = offset_UProperty_size + Process.pointerSize;
     } else {    // default
         setOffsetProperty(offset_UProperty_size);
     }   
@@ -1012,7 +1029,7 @@ function scanMemoryForGUObjectArray(scanStart, scanSize, mempattern) {
             if (GUObjectArraySearchCompleted) return;
             GUObjectArrayPatternFoundAddr = ptr(address);
 
-            if (appId === 'com.wemade.nightcrows') {
+            if (appId === 'com.wemade.nightcrows' || appId === 'com.GreenGoGames.RooftopPrakourFreerun') {
                 var adrp, add;
                 var disasm = Instruction.parse(GUObjectArrayPatternFoundAddr);
                 adrp = disasm.operands.find(op => op.type === 'imm')?.value;
@@ -1172,9 +1189,9 @@ function findGUObjectArray(moduleName) {
         if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
             /* Arena Breakout, Dead by Daylight, Octopath, Black Clover, Tower of Fantasy, Arthdal Chronicles, farlight84 pattern */
             pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 ?? ?? ?3 ?1 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
-        } else if (appId === "com.wemade.nightcrows") {
+        } else if (appId === "com.wemade.nightcrows" || appId === 'com.GreenGoGames.RooftopPrakourFreerun') {
             /* Night Crows pattern */
-            pattern = "?1 ?? ff ?0 ?? ?? ?? ?1 21 ?? ?? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
+            pattern = "?1 ?? f? ?0 ?? ?? ?? ?1 21 ?? ?? 91 ?? ?? ?? 9? ?0 ?? ?? ?0 00 ?? ?? f9"
         } else {
             pattern = "e1 ?? 40 b9 e2 ?? 40 b9 e3 ?? 40 39";
         }
@@ -1183,7 +1200,7 @@ function findGUObjectArray(moduleName) {
         var int = setInterval(() => {
             if ((GUObjectArrayPatternFoundAddr !== undefined) && (ptr(GUObjectArrayPatternFoundAddr) != "0x0")) {
                 console.log(`[*] GUObjectArray pattern found at ${GUObjectArrayPatternFoundAddr}`);
-                if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84') {
+                if (appId === 'com.proximabeta.mf.uamo' || appId === 'com.tencent.mf.uam' || appId === "com.wemade.nightcrows" || appId === "com.netease.ma100asia" || appId === "com.netease.dbdena" || appId === 'com.netease.octopath.kr' || appId === 'com.xd.TLglobal' || appId === 'com.vic.bc.kr' || appId === 'com.vic.bc.jp' || appId === "com.perfect.tof.gp" || appId === 'com.netmarble.arthdal' || appId === 'com.miraclegames.farlight84' || appId === 'com.GreenGoGames.RooftopPrakourFreerun') {
                     var adrp, ldr;
                     for (let off = 0;; off += 4) {
                         let disasm = Instruction.parse(GUObjectArrayPatternFoundAddr.add(off));
