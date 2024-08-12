@@ -16,6 +16,8 @@ Tested on the games listed below. It might not work correctly with other games u
 * 아키에이지 워 (ArcheAge War) (Android)
 * 명조: 워더링 웨이브 (Wuthering Waves) (Android, iOS)
 
+# [Wiki](https://github.com/hackcatml/frida-ue4dump/wiki)
+
 # Usage
 1. Attach
 - Real Device
