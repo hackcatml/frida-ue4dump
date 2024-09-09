@@ -44,7 +44,9 @@ dumpSdk()
 
 ![image](https://github.com/hackcatml/frida-ue4dump/assets/75507443/080cb6ee-8e60-4a45-97e9-ac36a440b136)
 
-
+# Contact
+- Channel: https://t.me/hackcatml1<br>
+- Chat: https://t.me/hackcatmlchat
 
 # Credits
 * [UE4Dumper](https://github.com/kp7742/UE4Dumper)
