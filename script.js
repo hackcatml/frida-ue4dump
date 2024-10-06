@@ -11,6 +11,12 @@ var arch = Process.arch;
 var isBeforeUE425 = false;
 var isActorDump = false;
 
+var processInternal_offset = null;
+var processEvent_offset = null;
+var processEvent = null;
+var doHookProcessEvent = false;
+var processEventFilterOutRegex;
+
 var O_RDONLY = 0;
 var SEEK_SET = 0;
 var open = new NativeFunction(Module.findExportByName(null, "open"), "int", ["pointer", "int", "int"])
@@ -796,7 +802,7 @@ var funcFlags = [
     {flag:0x00008000, name: "UbergraphFunction"},   // Function is used as the merge 'ubergraph' for a blueprint, only assigned when using the persistent 'ubergraph' frame
     {flag:0x00010000, name: "MulticastDlegate"},    // Function is a multi-cast delegate signature (also requires FUNC_Delegate to be set!)
     {flag:0x00100000, name: "Delegate"},    // Function is delegate signature (either single-cast or multi-cast, depending on whether FUNC_MulticastDelegate is set.)
-    {flag:0x04000000, name: "BlueprintCallabl"},    // function can be called from blueprint code
+    {flag:0x04000000, name: "BlueprintCallable"},    // function can be called from blueprint code
 	{flag:0x08000000, name: "BlueprintEvent"},  // function can be overridden/implemented from a blueprint
 	{flag:0x10000000, name: "BlueprintPure"},    // function can be called from blueprint code, and is also pure (produces no side effects). If you set this, you should set FUNC_BlueprintCallable as well.
     {flag:0x20000000, name: "EditorOnly"},  // function can only be called from an editor scrippt.
@@ -810,6 +816,10 @@ function writeStructChild_Func(childprop) {
     while (UObject.isValid(child)) {
         var prop = child;
         var oname = UObject.getName(prop);
+
+        if (doHookProcessEvent && oname.match(processEventFilterOutRegex))
+            break;
+
         var cname = UObject.getClassName(prop);
         // console.log(`writeStructChild_Func child: ${child}`);
         // console.log(`cname: ${cname}`);
@@ -876,10 +886,17 @@ function writeStructChild_Func(childprop) {
             }
 
             console.log(`\t${returnVal} ${oname}(${params}); // ${UFunction.getFunc(prop).sub(moduleBase)} ${flags !== "" ? ("[" + flags.slice(0, -1) + "]") : ""} ${isActorDump ? ("// Object addr: " + child) : ""}`);
+            
+            if (processInternal_offset === null && flags.slice(0, -1).match(/^(?!.*Native).*Blue.*/)) {
+                processInternal_offset = UFunction.getFunc(prop).sub(moduleBase);
+            }
         } else if (cname === "Class" || cname === "Package") {
         } else {
             console.log(`\t${cname} ${oname}; //[Size: ${UProperty.getElementSize(prop)}]`); 
         }
+
+        if (doHookProcessEvent)
+            break;
 
         child = UField.getNext(child);
     }
@@ -1336,6 +1353,44 @@ function findUEVersion(moduleName) {
     }
 }
 /* Find Unreal Engine Version */
+
+function hookProcessEvent() {
+    // Set a regex for functions you don't want to observe.
+    // The regex below filters out functions that start with 'Blueprint'.
+    processEventFilterOutRegex = /^blueprint.*/i;
+
+    if (processInternal_offset !== null) {
+        // Hook the ProcessInternal func to get the ProcessEvent func offset.
+        Interceptor.attach(moduleBase.add(processInternal_offset), {
+            onEnter: function(args) {
+                var backtrace = Thread.backtrace(this.context, Backtracer.ACCURATE)
+                                .map(DebugSymbol.fromAddress);
+                if (backtrace.length >= 2) {
+                    var second_backtrace_addr = backtrace[1].toString().split(' ')[0];
+                    var offset_from_module = backtrace[1].toString().split(' ')[1].split('+')[1];
+                    processEvent = ptr(second_backtrace_addr).sub(offset_from_module);
+                    processEvent_offset = processEvent.sub(moduleBase);
+                }
+            },
+            onLeave: function(ret) {
+                Interceptor.detachAll();
+            }
+        });
+
+        var int = setInterval(() => {
+            if (processEvent !== null) {
+                doHookProcessEvent = true;
+                Interceptor.attach(processEvent, {
+                    onEnter: function(args) {
+                        writeStructChild_Func(args[1]);
+                    },
+                    onLeave: function(ret) {}
+                })
+                clearInterval(int);
+            }
+        }, 1000);
+    }
+}
 
 function set(moduleName) {
     moduleBase = Module.findBaseAddress(moduleName);
