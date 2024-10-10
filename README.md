@@ -44,9 +44,23 @@ dumpSdk()
 
 ![image](https://github.com/hackcatml/frida-ue4dump/assets/75507443/080cb6ee-8e60-4a45-97e9-ac36a440b136)
 
-4. Hook ProcessEvent (Optional)(WIP)<br>
+4. Hook ProcessEvent (Optional)<br>
 ```
-After successfully completing the dump, call `hookProcessEvent()`
+(1) After successfully completing the dump, call `hookProcessEvent()`
+```
+or
+```
+(2) If you already know the ProcessInternal offset and have found all the offsets for the game, then...
+set(<moduleName>)
+processInternal_offset = <ProcessInternal offset you found. e.g, 0x123123>
+hookProcessEvent()
+```
+or
+```
+(3) If you already know the ProcessEvent offset and have found all the offsets for the game, then...
+set(<moduleName>)
+processEvent = moduleBase.add(<ProcessEvent offset you found. e.g, 0x123123>)
+hookProcessEvent()
 ```
 ![image](https://github.com/user-attachments/assets/3ce69e09-e666-4c92-a9dc-7cf99f27b285)
 
