@@ -1354,6 +1354,33 @@ function findUEVersion(moduleName) {
 }
 /* Find Unreal Engine Version */
 
+function functionFinderArm64(address) {
+    let before_disasm;
+    let disasm;
+    let next_disasm;
+    let func_addr = null;
+    for (let off = 0;; off += 4) {
+        disasm = Instruction.parse(address.sub(off));
+        if (disasm.mnemonic == "sub") {
+            next_disasm = Instruction.parse(disasm.next);
+            if (next_disasm.mnemonic == "stp" || next_disasm.mnemonic == "str") {
+                func_addr = disasm.address;
+                break;
+            }
+        } else if (disasm.mnemonic == "stp" && disasm.opStr.indexOf("sp") > -1) {
+            before_disasm = Instruction.parse(disasm.address.sub(0x4));
+            next_disasm = Instruction.parse(disasm.next);
+            if (before_disasm.mnemonic != "stp" && next_disasm.mnemonic == "stp") {
+                func_addr = disasm.address;
+                break;
+            }
+        } else {
+            continue;
+        }
+    }
+    return func_addr;
+}
+
 function hookProcessEvent() {
     // Set a regex for functions you don't want to observe.
     // The regex below filters out functions that start with 'Blueprint'.
@@ -1367,29 +1394,34 @@ function hookProcessEvent() {
                                 .map(DebugSymbol.fromAddress);
                 if (backtrace.length >= 2) {
                     var second_backtrace_addr = backtrace[1].toString().split(' ')[0];
-                    var offset_from_module = backtrace[1].toString().split(' ')[1].split('+')[1];
-                    processEvent = ptr(second_backtrace_addr).sub(offset_from_module);
-                    processEvent_offset = processEvent.sub(moduleBase);
+                    console.log(`[*] Backtrace for ProcessEvent:\n ${backtrace[1]}`);
+                    processEvent = functionFinderArm64(ptr(second_backtrace_addr));
+                    if (processEvent !== null) {
+                        console.log(`[*] Found ProcessEvent: ${processEvent}`);
+                        processEvent_offset = processEvent.sub(moduleBase);
+                    } else {
+                        console.log(`[!] Couldn't find ProcessEvent`);
+                    }
                 }
             },
             onLeave: function(ret) {
                 Interceptor.detachAll();
             }
         });
-
-        var int = setInterval(() => {
-            if (processEvent !== null) {
-                doHookProcessEvent = true;
-                Interceptor.attach(processEvent, {
-                    onEnter: function(args) {
-                        writeStructChild_Func(args[1]);
-                    },
-                    onLeave: function(ret) {}
-                })
-                clearInterval(int);
-            }
-        }, 1000);
     }
+
+    var int = setInterval(() => {
+        if (processEvent !== null) {
+            doHookProcessEvent = true;
+            Interceptor.attach(processEvent, {
+                onEnter: function(args) {
+                    writeStructChild_Func(args[1]);
+                },
+                onLeave: function(ret) {}
+            })
+            clearInterval(int);
+        }
+    }, 1000);
 }
 
 function set(moduleName) {
