@@ -50,14 +50,14 @@ dumpSdk()
 ```
 or
 ```
-(2) If you already know the ProcessInternal offset and have found all the offsets for the game, then...
+(2) If you already know the ProcessInternal offset and have found and fixed all the offsets for the game, then...
 set(<moduleName>)
 processInternal_offset = <ProcessInternal offset you found. e.g, 0x123123>
 hookProcessEvent()
 ```
 or
 ```
-(3) If you already know the ProcessEvent offset and have found all the offsets for the game, then...
+(3) If you already know the ProcessEvent offset and have found and fixed all the offsets for the game, then...
 set(<moduleName>)
 processEvent = moduleBase.add(<ProcessEvent offset you found. e.g, 0x123123>)
 hookProcessEvent()
